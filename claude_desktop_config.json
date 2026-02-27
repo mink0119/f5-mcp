@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"F5McpServer": {
+			"command": "wsl.exe",
+			"args": [
+				"bash", 
+				"-c",
+				"source /full/path/.venv/bin/activate && python /full/path/F5MCPserver.py"
+			  ]
+		}
+	}
+}
