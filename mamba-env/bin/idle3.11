@@ -1,0 +1,5 @@
+#!/Users/minkyu/Downloads/2.git/f5-mcp/mamba-env/bin/python3.11
+
+from idlelib.pyshell import main
+if __name__ == '__main__':
+    main()

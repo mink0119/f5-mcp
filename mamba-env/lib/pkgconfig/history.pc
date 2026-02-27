@@ -1,0 +1,11 @@
+prefix=/Users/minkyu/Downloads/2.git/f5-mcp/mamba-env
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: History
+Description: Gnu History library for managing previously-entered lines
+URL: http://tiswww.cwru.edu/php/chet/readline/rltop.html
+Version: 8.3
+Libs: -L${libdir} -lhistory
+Cflags: -I${includedir}

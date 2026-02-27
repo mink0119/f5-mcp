@@ -1,12 +1,14 @@
 {
-	"mcpServers": {
-		"F5McpServer": {
-			"command": "wsl.exe",
-			"args": [
-				"bash", 
-				"-c",
-				"source /full/path/.venv/bin/activate && python /full/path/F5MCPserver.py"
-			  ]
-		}
-	}
+  "mcpServers": {
+    "F5McpServer": {
+      "command": "/Users/minkyu/Downloads/2.git/f5-mcp/.tools/micromamba/micromamba",
+      "args": [
+        "run",
+        "-p",
+        "/Users/minkyu/Downloads/2.git/f5-mcp/mamba-env",
+        "python",
+        "/Users/minkyu/Downloads/2.git/f5-mcp/F5MCPserver.py"
+      ]
+    }
+  }
 }
