@@ -1,14 +1,14 @@
 {
   "mcpServers": {
-    "F5McpServer": {
-      "command": "/Users/minkyu/Downloads/2.git/f5-mcp/.tools/micromamba/micromamba",
+    "f5-mcp": {
+      "command": "/Users/minkyu/Downloads/2.git/f5-mcp/mamba-env/bin/python",
       "args": [
-        "run",
-        "-p",
-        "/Users/minkyu/Downloads/2.git/f5-mcp/mamba-env",
-        "python",
-        "/Users/minkyu/Downloads/2.git/f5-mcp/F5MCPserver.py"
-      ]
+        "-m",
+        "F5MCPserver"
+      ],
+      "env": {
+        "F5_ENDPOINT_TYPE": "F5OS"
+      }
     }
   }
 }
