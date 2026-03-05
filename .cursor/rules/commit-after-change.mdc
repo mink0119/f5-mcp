@@ -1,0 +1,17 @@
+---
+description: f5-mcp 코드/문서 수정 후 자동 커밋
+globs: 
+alwaysApply: true
+---
+
+# f5-mcp 변경 후 자동 커밋
+
+이 프로젝트(f5-mcp)에서 **코드 또는 문서를 수정한 뒤**에는 반드시 다음을 실행한다.
+
+1. 터미널에서 f5-mcp 루트로 이동한 뒤:
+   ```bash
+   ./scripts/commit-if-changes.sh "수정 내용을 한 줄로 요약한 커밋 메시지"
+   ```
+2. 커밋 메시지는 **무엇을 바꿨는지** 구체적으로 쓴다. (예: "Add L4 get state tools", "Fix FastL4 defaultsFrom to fastL4", "Docs: forbid guessing in before/after comparison")
+
+수정한 파일이 있고 아직 커밋하지 않았다면, 세션 마무리 전에 위 스크립트를 한 번 실행해 커밋까지 완료한다.
