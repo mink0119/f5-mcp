@@ -136,11 +136,16 @@ For **TMOS (BIG-IP)** there are two template-style flows:
 
 2. **L4 standard (L4 표준 설정)** — "L4 표준 설정 해줘" Use the **verification tools** first if you need an accurate before/after comparison.
 
-### Basic Settings Tool
+### Basic Settings & Auth User
 
 | Tool | Purpose |
 |------|--------|
 | `apply_basic_settings_tool(...)` | Apply device basic setup: hostname, admin/root password, DNS, NTP (+ timezone), syslog. Only provided parameters are applied. |
+| `list_auth_users_tool()` | List auth users (accounts). |
+| `create_auth_user_tool(name, password, partition_access=[{"name":"all-partitions","role":"admin"}], ...)` | Create auth user; use `role`: admin, operator, guest, manager. |
+| `get_auth_user_tool(name)` | Get a single auth user. |
+| `update_auth_user_tool(name, password=..., description=..., partition_access=..., shell=...)` | Update auth user (password, role, shell, etc.). |
+| `delete_auth_user_tool(name)` | Delete auth user. |
 
 ### L4 Standard Tools
 
@@ -169,7 +174,7 @@ Detailed basic settings (Section 0) and L4 DB/profile list (Section 1): **`F5_TM
 |------|-------------|
 | **`README.md`** (this file) | Overview, configuration, quick reference. |
 | **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** | F5 TMOS standard process flow: basic settings (Section 0), L4 DB/Profile (Section 1), One-Arm, redundancy, VLAN/Self IP/Route, SNAT, profiles. Includes **verification flow** (Section 1.4). |
-| **`TMOS_AI_AGENT_GUIDE.md`** | Full tool list (12 tools including apply_basic_settings_tool), usage examples, Claude Desktop setup, and AI agent behavior. |
+| **`TMOS_AI_AGENT_GUIDE.md`** | Full tool list (17 tools: CRUD, auth user, basic/L4 standard), usage examples, Claude Desktop setup, and AI agent behavior. |
 
 New users: set `.env` (see Configuration above), then read `F5_TMOS_STANDARD_CONFIG_GUIDE.md` for the flow and `TMOS_AI_AGENT_GUIDE.md` for tool usage.
 

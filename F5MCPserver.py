@@ -113,6 +113,89 @@ def health_check_tool(
     return F5_object(**_conn(tmos_host, tmos_port, tmos_username, tmos_password)).sys_version()
 
 
+# ============= Auth User (계정) 관리 =============
+@mcp.tool()
+def list_auth_users_tool(
+    tmos_host: str = None,
+    tmos_port: int = None,
+    tmos_username: str = None,
+    tmos_password: str = None,
+):
+    """auth user(계정) 목록 조회"""
+    return F5_object(**_conn(tmos_host, tmos_port, tmos_username, tmos_password)).list_auth_users()
+
+
+@mcp.tool()
+def create_auth_user_tool(
+    name: str,
+    password: str,
+    description: str = None,
+    partition_access: list = None,
+    shell: str = None,
+    tmos_host: str = None,
+    tmos_port: int = None,
+    tmos_username: str = None,
+    tmos_password: str = None,
+):
+    """auth user(계정) 생성. name(사용자명), password 필수.
+    partition_access: [ {"name": "all-partitions", "role": "admin"} ] 형태. role: admin, operator, guest, manager 등.
+    shell: bash, tmsh, none (선택).
+    """
+    return F5_object(**_conn(tmos_host, tmos_port, tmos_username, tmos_password)).create_auth_user(
+        name=name,
+        password=password,
+        description=description,
+        partition_access=partition_access,
+        shell=shell,
+    )
+
+
+@mcp.tool()
+def get_auth_user_tool(
+    name: str,
+    tmos_host: str = None,
+    tmos_port: int = None,
+    tmos_username: str = None,
+    tmos_password: str = None,
+):
+    """auth user(계정) 단일 조회"""
+    return F5_object(**_conn(tmos_host, tmos_port, tmos_username, tmos_password)).get_auth_user(name)
+
+
+@mcp.tool()
+def update_auth_user_tool(
+    name: str,
+    password: str = None,
+    description: str = None,
+    partition_access: list = None,
+    shell: str = None,
+    tmos_host: str = None,
+    tmos_port: int = None,
+    tmos_username: str = None,
+    tmos_password: str = None,
+):
+    """auth user(계정) 수정. name 필수. password, description, partition_access, shell 중 변경할 것만 넘김."""
+    return F5_object(**_conn(tmos_host, tmos_port, tmos_username, tmos_password)).update_auth_user(
+        name=name,
+        password=password,
+        description=description,
+        partition_access=partition_access,
+        shell=shell,
+    )
+
+
+@mcp.tool()
+def delete_auth_user_tool(
+    name: str,
+    tmos_host: str = None,
+    tmos_port: int = None,
+    tmos_username: str = None,
+    tmos_password: str = None,
+):
+    """auth user(계정) 삭제. name(사용자명) 필수."""
+    return F5_object(**_conn(tmos_host, tmos_port, tmos_username, tmos_password)).delete_auth_user(name)
+
+
 # ============= 호스트명 설정 =============
 @mcp.tool()
 def get_hostname_tool(

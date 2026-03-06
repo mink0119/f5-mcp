@@ -35,6 +35,12 @@ AI Agent 응답:
 ### 4. "기본 설정 해줘" 요청 시
 - **apply_basic_settings_tool**을 사용한다. 사용자가 준 값만 인자로 넘긴다 (hostname, nameservers, ntp_servers, timezone, admin_password, root_password, syslog 관련 인자). 생략된 항목은 넘기지 않으면 툴이 해당 항목을 건너뛴다.
 
+### 4-0. "계정 추가/삭제/변경" 요청 시
+- **추가**: `create_auth_user_tool(name="사용자명", password="비밀번호", partition_access=[{"name": "all-partitions", "role": "admin"}])` 사용. admin 권한이면 role="admin".
+- **삭제**: `delete_auth_user_tool(name="사용자명")`
+- **변경(비밀번호 등)**: `update_auth_user_tool(name="사용자명", password="새비밀번호")` 또는 description, partition_access, shell 등 수정.
+- **목록**: `list_auth_users_tool()` / **단일 조회**: `get_auth_user_tool(name="사용자명")`
+
 ### 4-1. 다중 장비·비밀번호 변경 후 연결 (요청 단위 연결)
 - 모든 툴은 선택 인자 **tmos_host, tmos_port, tmos_username, tmos_password** 를 받는다. 넘기면 **해당 호출만** 그 연결로 수행한다 (환경변수·서버 설정 변경 없음).
 - **admin 비밀번호를 방금 변경한 경우**: 이후 호출(예: root 비밀번호 변경)에서 401이 나오지 않도록, **반드시 tmos_username="admin", tmos_password="방금 설정한 새 비밀번호"** 를 넘겨서 같은 툴을 다시 호출한다.

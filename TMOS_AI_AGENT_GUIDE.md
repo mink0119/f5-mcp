@@ -7,7 +7,7 @@
 
 ### 완료된 항목 ✅
 - [x] TMOS 전용 MCP 서버 구현
-- [x] 12개 TMOS 도구 (show_stats, show_logs, list, create, update, delete, health_check, apply_basic_settings, apply_l4_standard_db, apply_l4_standard_profiles, get_l4_standard_db_state, get_l4_standard_profiles_state)
+- [x] 17개 TMOS 도구 (show_stats, show_logs, list, create, update, delete, health_check, auth user 5종, apply_basic_settings, apply_l4_standard_*, get_l4_standard_*)
 - [x] F5 표준 설정 프로세스 플로우 문서화
 - [x] AI Agent 시스템 프롬프트 작성
 - [x] One-Arm 로드밸런싱 설정 가이드
@@ -160,7 +160,7 @@ VLAN을 생성하려면 다음 정보가 필요합니다:
 
 ---
 
-## 🛠️ MCP Tools (12개)
+## 🛠️ MCP Tools (17개)
 
 ### 1. show_stats_tool
 **목적:** F5 리소스의 통계 정보 조회
@@ -272,7 +272,47 @@ health_check_tool()
 }
 ```
 
-### 8. apply_basic_settings_tool
+### 8. list_auth_users_tool
+**목적:** auth user(계정) 목록 조회
+
+```
+파라미터 (선택): tmos_host, tmos_port, tmos_username, tmos_password
+예시: list_auth_users_tool()
+```
+
+### 9. create_auth_user_tool
+**목적:** auth user(계정) 생성. admin 권한 계정 추가 시 partition_access=[{"name":"all-partitions","role":"admin"}]
+
+```
+파라미터: name(필수), password(필수), description(선택), partition_access(선택), shell(선택: bash/tmsh/none), 연결 오버라이드(선택)
+예시: create_auth_user_tool(name="ncurity", password="ncurity1@#", partition_access=[{"name":"all-partitions","role":"admin"}])
+```
+
+### 10. get_auth_user_tool
+**목적:** auth user(계정) 단일 조회
+
+```
+파라미터: name(필수), 연결 오버라이드(선택)
+예시: get_auth_user_tool(name="ncurity")
+```
+
+### 11. update_auth_user_tool
+**목적:** auth user(계정) 수정 (비밀번호, description, partition_access, shell 등)
+
+```
+파라미터: name(필수), password/description/partition_access/shell(선택), 연결 오버라이드(선택)
+예시: update_auth_user_tool(name="ncurity", password="newpass")
+```
+
+### 12. delete_auth_user_tool
+**목적:** auth user(계정) 삭제
+
+```
+파라미터: name(필수), 연결 오버라이드(선택)
+예시: delete_auth_user_tool(name="ncurity")
+```
+
+### 13. apply_basic_settings_tool
 **목적:** 장비 초기 기본 설정 템플릿. "기본 설정 해줘" 요청 시 사용. hostname, admin/root 비밀번호, DNS, NTP(+timezone), syslog를 넘긴 인자만 적용.
 
 ```
@@ -282,7 +322,7 @@ health_check_tool()
 apply_basic_settings_tool(hostname="f5-01", nameservers=["8.8.8.8"], ntp_servers=["time.google.com"], timezone="Asia/Seoul", admin_password="newadminpass", root_password="newrootpass")
 ```
 
-### 9. apply_l4_standard_db_tool
+### 14. apply_l4_standard_db_tool
 **목적:** L4 표준 DB 설정 일괄 적용 (GUI 옵션, fastl4 ack mirror, syn cookie 비활성화, dupsynenforce, monitorencap, mgmtroutecheck, setup.run, ltm connection)
 
 ```
@@ -292,7 +332,7 @@ apply_basic_settings_tool(hostname="f5-01", nameservers=["8.8.8.8"], ntp_servers
 apply_l4_standard_db_tool()
 ```
 
-### 10. apply_l4_standard_profiles_tool
+### 15. apply_l4_standard_profiles_tool
 **목적:** L4 표준 프로파일 생성 (HTTP_DEFAULT, TCP_DEFAULT, FL4_DEFAULT, FL4_UDP, clientssl_sni_default)
 
 ```
@@ -302,7 +342,7 @@ apply_l4_standard_db_tool()
 apply_l4_standard_profiles_tool()
 ```
 
-### 11. get_l4_standard_db_state_tool
+### 16. get_l4_standard_db_state_tool
 **목적:** L4 표준 DB 항목의 **장비 현재값** 조회 (적용 전/후 비교용). 기본값이 아닌 실제 sys_db·connection 값을 반환한다.
 
 ```
@@ -313,7 +353,7 @@ get_l4_standard_db_state_tool()
 # 비교 시: 1) 이 툴 호출 → Before 저장, 2) apply_l4_standard_db_tool() 실행, 3) 이 툴 재호출 → After
 ```
 
-### 12. get_l4_standard_profiles_state_tool
+### 17. get_l4_standard_profiles_state_tool
 **목적:** L4 표준 프로파일 5개의 **장비 현재 설정** 조회 (적용 전/후 비교용). idleTimeout, pvaAcceleration 등 실제 값을 반환한다.
 
 ```
@@ -386,6 +426,7 @@ get_l4_standard_profiles_state_tool()
 │  - update_tool                      │
 │  - delete_tool                      │
 │  - health_check_tool                │
+│  - list/create/get/update/delete_auth_user_tool │
 │  - apply_basic_settings_tool        │
 │  - apply_l4_standard_db_tool         │
 │  - apply_l4_standard_profiles_tool  │

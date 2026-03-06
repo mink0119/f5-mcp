@@ -211,6 +211,55 @@ class F5_object:
         path = f"/mgmt/tm/auth/user/{username}"
         return self._request("PATCH", path, json_body={"password": password})
 
+    # ============= Auth User (계정) 생성/조회/수정/삭제 =============
+    def list_auth_users(self):
+        """auth user 목록 조회. GET /mgmt/tm/auth/user"""
+        return self._request("GET", "/mgmt/tm/auth/user")
+
+    def create_auth_user(
+        self,
+        name: str,
+        password: str,
+        description: str = None,
+        partition_access: list = None,
+        shell: str = None,
+    ):
+        """auth user 생성. POST /mgmt/tm/auth/user
+        partition_access: [ {"name": "all-partitions", "role": "admin"} ] (role: admin, operator, guest, manager 등)
+        """
+        payload = {"name": name, "password": password}
+        if description is not None:
+            payload["description"] = description
+        if partition_access is not None:
+            payload["partitionAccess"] = partition_access
+        if shell is not None:
+            payload["shell"] = shell
+        return self._request("POST", "/mgmt/tm/auth/user", json_body=payload)
+
+    def get_auth_user(self, name: str):
+        """auth user 단일 조회. GET /mgmt/tm/auth/user/<name>"""
+        path = f"/mgmt/tm/auth/user/{name}"
+        return self._request("GET", path)
+
+    def update_auth_user(self, name: str, password: str = None, description: str = None, partition_access: list = None, shell: str = None):
+        """auth user 수정. PATCH /mgmt/tm/auth/user/<name>"""
+        path = f"/mgmt/tm/auth/user/{name}"
+        payload = {}
+        if password is not None:
+            payload["password"] = password
+        if description is not None:
+            payload["description"] = description
+        if partition_access is not None:
+            payload["partitionAccess"] = partition_access
+        if shell is not None:
+            payload["shell"] = shell
+        return self._request("PATCH", path, json_body=payload)
+
+    def delete_auth_user(self, name: str):
+        """auth user 삭제. DELETE /mgmt/tm/auth/user/<name>"""
+        path = f"/mgmt/tm/auth/user/{name}"
+        return self._request("DELETE", path)
+
     def apply_basic_settings(
         self,
         hostname=None,
