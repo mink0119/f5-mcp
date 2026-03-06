@@ -154,6 +154,75 @@ def set_syslog_tool(console_log: str = None, clustered_host_slot: str = None,
     return F5_object().set_syslog(**payload)
 
 
+# ============= 장비 기본 설정 (템플릿) =============
+@mcp.tool()
+def apply_basic_settings_tool(
+    hostname: str = None,
+    nameservers: list = None,
+    search_domains: list = None,
+    ntp_servers: list = None,
+    timezone: str = None,
+    admin_password: str = None,
+    root_password: str = None,
+    console_log: str = None,
+    clustered_host_slot: str = None,
+    cron_from: str = None,
+    cron_to: str = None,
+    daemon_from: str = None,
+    daemon_to: str = None,
+    auth_priv_from: str = None,
+    auth_priv_to: str = None,
+):
+    """장비 초기 기본 설정을 한 번에 적용합니다 (템플릿).
+    '기본 설정 해줘' 요청 시 이 툴을 사용하세요.
+    넘긴 인자만 적용하며, 생략한 항목은 건너뜁니다.
+    hostname: 호스트명. nameservers: DNS 서버 리스트. search_domains: DNS 검색 도메인.
+    ntp_servers: NTP 서버 리스트. timezone: 타임존 (예: Asia/Seoul).
+    admin_password: admin 계정 비밀번호. root_password: root 계정 비밀번호.
+    console_log, clustered_host_slot, cron_from/to, daemon_from/to, auth_priv_from/to: syslog 옵션.
+    """
+    syslog = None
+    if any(
+        [
+            console_log,
+            clustered_host_slot,
+            cron_from,
+            cron_to,
+            daemon_from,
+            daemon_to,
+            auth_priv_from,
+            auth_priv_to,
+        ]
+    ):
+        syslog = {}
+        if console_log:
+            syslog["consoleLog"] = console_log
+        if clustered_host_slot:
+            syslog["clusteredHostSlot"] = clustered_host_slot
+        if cron_from:
+            syslog["cronFrom"] = cron_from
+        if cron_to:
+            syslog["cronTo"] = cron_to
+        if daemon_from:
+            syslog["daemonFrom"] = daemon_from
+        if daemon_to:
+            syslog["daemonTo"] = daemon_to
+        if auth_priv_from:
+            syslog["authPrivFrom"] = auth_priv_from
+        if auth_priv_to:
+            syslog["authPrivTo"] = auth_priv_to
+    return F5_object().apply_basic_settings(
+        hostname=hostname,
+        nameservers=nameservers,
+        search_domains=search_domains,
+        ntp_servers=ntp_servers,
+        timezone=timezone,
+        admin_password=admin_password,
+        root_password=root_password,
+        syslog=syslog,
+    )
+
+
 # ============= L4 표준 설정 =============
 @mcp.tool()
 def get_l4_standard_db_state_tool():

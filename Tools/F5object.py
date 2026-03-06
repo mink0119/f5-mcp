@@ -188,6 +188,67 @@ class F5_object:
         payload = {"hostname": hostname}
         return self._request("PATCH", "/mgmt/tm/sys/global-settings", json_body=payload)
 
+    def set_user_password(self, username: str, password: str):
+        """사용자(admin, root 등) 비밀번호 설정. PATCH /mgmt/tm/auth/user/<username>"""
+        path = f"/mgmt/tm/auth/user/{username}"
+        return self._request("PATCH", path, json_body={"password": password})
+
+    def apply_basic_settings(
+        self,
+        hostname=None,
+        nameservers=None,
+        search_domains=None,
+        ntp_servers=None,
+        timezone=None,
+        admin_password=None,
+        root_password=None,
+        syslog=None,
+    ):
+        """장비 초기 기본 설정 템플릿: hostname, dns, ntp(+timezone), syslog, admin/root 비밀번호를 한 번에 적용.
+        인자로 넘긴 항목만 적용하며, 넘기지 않은 항목은 건너뜀.
+        syslog: dict (예: {"consoleLog": "enabled", "authPrivFrom": "warning"})
+        """
+        results = []
+        all_ok = True
+
+        if hostname is not None and hostname != "":
+            r = self.set_hostname(hostname)
+            results.append({"step": "hostname", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False:
+                all_ok = False
+
+        if nameservers is not None:
+            r = self.set_dns(nameservers, search_domains)
+            results.append({"step": "dns", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False:
+                all_ok = False
+
+        if ntp_servers is not None:
+            r = self.set_ntp(ntp_servers, timezone)
+            results.append({"step": "ntp", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False:
+                all_ok = False
+
+        if syslog is not None and isinstance(syslog, dict) and syslog:
+            r = self.set_syslog(**syslog)
+            results.append({"step": "syslog", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False:
+                all_ok = False
+
+        if admin_password is not None and admin_password != "":
+            r = self.set_user_password("admin", admin_password)
+            results.append({"step": "admin_password", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False:
+                all_ok = False
+
+        if root_password is not None and root_password != "":
+            r = self.set_user_password("root", root_password)
+            results.append({"step": "root_password", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False:
+                all_ok = False
+
+        return {"ok": all_ok, "results": results}
+
     # ============= L4 표준 DB 설정 =============
     def set_sys_db(self, name: str, value: str):
         """sys db 변수 설정 (PATCH /mgmt/tm/sys/db/<name>)

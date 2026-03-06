@@ -119,9 +119,21 @@ appliance-1# config
 appliance-1(config)# system aaa primary-key set passphrase
 ```
 
-## TMOS L4 Standard Configuration
+## TMOS: Basic Settings & L4 Standard (Templates)
 
-For **TMOS (BIG-IP)** deployments, L4 standard DB and profile settings can be applied via MCP tools. Use the **verification tools** first if you need an accurate before/after comparison.
+For **TMOS (BIG-IP)** there are two template-style flows:
+
+1. **Basic settings (기본 설정)** — "기본 설정 해줘"  
+   `apply_basic_settings_tool(hostname=..., nameservers=..., ntp_servers=..., timezone=..., admin_password=..., root_password=..., syslog options...)`  
+   Applies hostname, admin/root password, DNS, NTP (+ timezone), and syslog in one go. Only provided parameters are applied.
+
+2. **L4 standard (L4 표준 설정)** — "L4 표준 설정 해줘" Use the **verification tools** first if you need an accurate before/after comparison.
+
+### Basic Settings Tool
+
+| Tool | Purpose |
+|------|--------|
+| `apply_basic_settings_tool(...)` | Apply device basic setup: hostname, admin/root password, DNS, NTP (+ timezone), syslog. Only provided parameters are applied. |
 
 ### L4 Standard Tools
 
@@ -140,7 +152,7 @@ To get a correct **before/after** report (and avoid showing wrong "before" value
 2. **Apply** — Call `apply_l4_standard_db_tool()` and/or `apply_l4_standard_profiles_tool()`.
 3. **After** — Call the same get tool(s) again and compare with the saved Before.
 
-Detailed L4 DB/profile list and process flow: **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** (Section 0).
+Detailed basic settings (Section 0) and L4 DB/profile list (Section 1): **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`**.
 
 ---
 
@@ -149,8 +161,8 @@ Detailed L4 DB/profile list and process flow: **`F5_TMOS_STANDARD_CONFIG_GUIDE.m
 | File | Description |
 |------|-------------|
 | **`README.md`** (this file) | Overview, configuration, quick reference. |
-| **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** | F5 TMOS standard process flow: L4 DB/Profile list, One-Arm, redundancy, VLAN/Self IP/Route, SNAT, profiles. Includes **verification flow** (Section 0.4). |
-| **`TMOS_AI_AGENT_GUIDE.md`** | Full tool list (11 tools), usage examples, Claude Desktop setup, and AI agent behavior. |
+| **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** | F5 TMOS standard process flow: basic settings (Section 0), L4 DB/Profile (Section 1), One-Arm, redundancy, VLAN/Self IP/Route, SNAT, profiles. Includes **verification flow** (Section 1.4). |
+| **`TMOS_AI_AGENT_GUIDE.md`** | Full tool list (12 tools including apply_basic_settings_tool), usage examples, Claude Desktop setup, and AI agent behavior. |
 
 New users: set `.env` (see Configuration above), then read `F5_TMOS_STANDARD_CONFIG_GUIDE.md` for the flow and `TMOS_AI_AGENT_GUIDE.md` for tool usage.
 

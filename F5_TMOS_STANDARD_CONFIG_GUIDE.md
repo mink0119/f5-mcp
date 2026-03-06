@@ -6,16 +6,40 @@
 MCP 툴을 사용하는 다른 사용자도 이 가이드만 따라 하면 표준 설정 흐름을 적용할 수 있습니다.
 
 **문서 구조**
-- **Section 0**: L4 표준 설정 (DB 8개 + connection 3개, 프로파일 5개) — 적용 방법 및 **적용 전/후 검증 절차**
-- **Section 1–6**: One-Arm, 이중화, VLAN/Self IP/Route, SNAT, Profile, Virtual Server & Pool — 프로세스 플로우와 필수 파라미터
+- **Section 0**: 장비 기본 설정 (템플릿) — hostname, admin/root 비밀번호, DNS, NTP, syslog
+- **Section 1**: L4 표준 설정 (DB 8개 + connection 3개, 프로파일 5개) — 적용 방법 및 **적용 전/후 검증 절차**
+- **Section 2–7**: One-Arm, 이중화, VLAN/Self IP/Route, SNAT, Profile, Virtual Server & Pool — 프로세스 플로우와 필수 파라미터
 
 ---
 
-## 0. L4 표준 설정 (DB 및 Profile)
+## 0. 장비 기본 설정 (템플릿)
+
+"**기본 설정 해줘**" 요청 시 사용하는 템플릿이다. 장비 초기화 시 hostname, admin/root 비밀번호, DNS, NTP(+timezone), syslog를 한 번에 적용할 수 있다.
+
+### 0.1 적용 항목
+
+| 항목 | 설명 | MCP 툴 개별 설정 |
+|------|------|------------------|
+| hostname | 호스트명 | set_hostname_tool |
+| admin 비밀번호 | admin 계정 비밀번호 | (apply_basic_settings_tool 내부) |
+| root 비밀번호 | root 계정 비밀번호 | (apply_basic_settings_tool 내부) |
+| DNS | nameservers, search_domains | set_dns_tool |
+| NTP | servers, timezone | set_ntp_tool |
+| Syslog | consoleLog, authPrivFrom/To 등 | set_syslog_tool |
+
+### 0.2 MCP에서 적용
+
+- **한 번에 적용**: `apply_basic_settings_tool(hostname=..., nameservers=..., ntp_servers=..., timezone=..., admin_password=..., root_password=..., ...)`  
+  넘긴 인자만 적용되며, 생략한 항목은 건너뛴다.
+- 예: "기본 설정 해줘. hostname f5-01, DNS 8.8.8.8, NTP time.google.com, timezone Asia/Seoul, admin 비밀번호 변경해줘" → AI가 해당 인자만 넣어서 `apply_basic_settings_tool` 호출.
+
+---
+
+## 1. L4 표준 설정 (DB 및 Profile)
 
 L4 표준 구성 시 적용하는 sys db, ltm connection, 프로파일을 MCP에서 일괄 적용할 수 있다.
 
-### 0.1 L4 표준 DB 설정 목록
+### 1.1 L4 표준 DB 설정 목록
 
 **sys db (8개)** — 각 항목 `tmsh modify sys db <key> value <value>`에 대응
 
@@ -36,7 +60,7 @@ L4 표준 구성 시 적용하는 sys db, ltm connection, 프로파일을 MCP에
 - defaultVsSynChallengeThreshold: 0
 - vlanSynCookie: disabled
 
-### 0.2 L4 표준 Profile 목록 (5개)
+### 1.2 L4 표준 Profile 목록 (5개)
 
 | 이름 | 타입 | 설명 |
 |------|------|------|
@@ -46,14 +70,14 @@ L4 표준 구성 시 적용하는 sys db, ltm connection, 프로파일을 MCP에
 | FL4_UDP | fastl4 | idle-timeout 5, pva none |
 | clientssl_sni_default | client-ssl | sni-default true |
 
-### 0.3 MCP에서 적용
+### 1.3 MCP에서 적용
 
 - **L4 표준 DB 적용**: `apply_l4_standard_db_tool()` 호출 (인자 없음)
 - **L4 표준 Profile 적용**: `apply_l4_standard_profiles_tool()` 호출 (인자 없음)
 
 AI Agent 또는 사용자가 위 두 툴을 순서대로 호출하면 L4 표준 DB 설정과 표준 프로파일이 일괄 적용된다.
 
-### 0.4 적용 전/후 검증 (자체 검증)
+### 1.4 적용 전/후 검증 (자체 검증)
 
 비교 보고 시 **반드시 장비 실제값을 조회**해 사용해야 한다. 기본값이나 추정값을 쓰면 잘못된 전/후 비교가 나온다.
 
@@ -72,7 +96,7 @@ AI Agent 또는 사용자가 위 두 툴을 순서대로 호출하면 L4 표준 
 
 ---
 
-## 1. One-Arm 로드밸런싱 구성
+## 2. One-Arm 로드밸런싱 구성
 
 ### 프로세스 플로우
 ```
@@ -133,7 +157,7 @@ One-Arm 요청
 
 ---
 
-## 2. 이중화(Redundancy) 구성
+## 3. 이중화(Redundancy) 구성
 
 ### 프로세스 플로우
 ```
@@ -179,7 +203,7 @@ One-Arm 요청
 
 ---
 
-## 3. VLAN, Self IP, Route 상세 설정
+## 4. VLAN, Self IP, Route 상세 설정
 
 ### 3.1 VLAN 생성
 ```
@@ -225,7 +249,7 @@ One-Arm 요청
 
 ---
 
-## 4. SNAT Pool 설정
+## 5. SNAT Pool 설정
 
 ### 프로세스 플로우
 ```
@@ -255,7 +279,7 @@ SNAT 구성 요청
 
 ---
 
-## 5. Profile 설정
+## 6. Profile 설정
 
 ### 5.1 HTTP Profile
 ```json
@@ -301,7 +325,7 @@ SNAT 구성 요청
 
 ---
 
-## 6. Virtual Server & Pool 생성
+## 7. Virtual Server & Pool 생성
 
 ### Virtual Server
 ```json

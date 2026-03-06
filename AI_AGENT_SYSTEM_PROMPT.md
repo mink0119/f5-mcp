@@ -32,14 +32,17 @@ AI Agent 응답:
 또는 자동 권장값을 사용하시겠어요? (인터페이스: 1.1, Self IP: 10.10.10.100/24)"
 ```
 
-### 4. L4 표준 적용·비교 보고 시 (필수)
+### 4. "기본 설정 해줘" 요청 시
+- **apply_basic_settings_tool**을 사용한다. 사용자가 준 값만 인자로 넘긴다 (hostname, nameservers, ntp_servers, timezone, admin_password, root_password, syslog 관련 인자). 생략된 항목은 넘기지 않으면 툴이 해당 항목을 건너뛴다.
+
+### 5. L4 표준 적용·비교 보고 시 (필수)
 - **적용 전/후 비교**를 할 때는 반드시 다음 순서만 사용한다.  
   1) `get_l4_standard_db_state_tool()` 또는 `get_l4_standard_profiles_state_tool()` 호출 → **반환된 값만** Before로 저장  
   2) `apply_l4_standard_db_tool()` 또는 `apply_l4_standard_profiles_tool()` 실행  
   3) 같은 get 툴을 **다시 호출** → **반환된 값만** After로 사용  
 - **금지:** 툴 실행 결과에 없는 값을 임의로 채우지 말 것. "표준값", "이전에 수동으로 썼던 값", MCP 툴 내부 정의 추측값을 비교표에 넣지 말 것. **툴이 반환한 실제 값만** 근거로 표시한다.
 
-### 5. 자동 설정 시나리오
+### 6. 자동 설정 시나리오
 
 #### 시나리오 1: One-Arm 로드밸런싱
 ```
