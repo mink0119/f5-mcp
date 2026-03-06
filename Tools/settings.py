@@ -1,10 +1,11 @@
 """F5 TMOS 연결 설정 관리"""
 
+import base64
 import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 from dotenv import load_dotenv
 
@@ -79,7 +80,7 @@ def _endpoint_from_env(host_key: str, port_key: str, auth_key: str,
 
 @lru_cache(maxsize=1)
 def get_endpoint_settings(kind: str = "TMOS") -> EndpointSettings:
-    """TMOS 설정 조회"""
+    """TMOS 설정 조회 (환경변수 기준)"""
     return _endpoint_from_env(
         host_key="TMOS_HOST",
         port_key="TMOS_PORT",
@@ -87,6 +88,44 @@ def get_endpoint_settings(kind: str = "TMOS") -> EndpointSettings:
         verify_key="TMOS_VERIFY_TLS",
         timeout_key="TMOS_TIMEOUT_SECONDS",
         default_port=443,
+    )
+
+
+def build_endpoint_settings(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    auth_b64: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    verify_tls: Optional[bool] = None,
+    timeout_seconds: Optional[int] = None,
+) -> EndpointSettings:
+    """요청 단위 연결 정보로 EndpointSettings 생성. 누락된 값은 환경변수로 채움.
+    다중 장비·계정 변경 시 호출마다 다른 host/username/password 전달 가능.
+    """
+    if auth_b64 is None and username is not None and password is not None:
+        auth_b64 = base64.b64encode(f"{username}:{password}".encode()).decode()
+    # 전부 넘어오면 env 불필요
+    if host and auth_b64:
+        return EndpointSettings(
+            host=host.strip(),
+            port=port if port is not None else 443,
+            auth_basic_b64=auth_b64.strip(),
+            verify_tls=verify_tls if verify_tls is not None else False,
+            timeout_seconds=timeout_seconds if timeout_seconds is not None else 20,
+        )
+    # 일부만 넘어오면 나머지는 env
+    defaults = get_endpoint_settings("TMOS")
+    out_host = (host or defaults.host).strip()
+    out_auth = (auth_b64 or defaults.auth_basic_b64).strip()
+    if not out_host or not out_auth:
+        raise ValueError("TMOS 연결 정보 부족: host와 인증( auth_b64 또는 username+password ) 필요. 또는 환경변수 TMOS_HOST, TMOS_AUTH_BASIC_B64 설정.")
+    return EndpointSettings(
+        host=out_host,
+        port=port if port is not None else defaults.port,
+        auth_basic_b64=out_auth,
+        verify_tls=verify_tls if verify_tls is not None else defaults.verify_tls,
+        timeout_seconds=timeout_seconds if timeout_seconds is not None else defaults.timeout_seconds,
     )
 
 

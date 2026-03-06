@@ -2,9 +2,28 @@
 
 import requests
 import urllib3
-from Tools.settings import get_endpoint_settings
+from Tools.settings import get_endpoint_settings, build_endpoint_settings
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def _connection_overrides_from_kwargs(kwargs):
+    """kwargs에서 연결 오버라이드만 추출 (tmos_host, tmos_port, tmos_username, tmos_password 등)"""
+    keys = ("tmos_host", "tmos_port", "tmos_username", "tmos_password", "tmos_auth_b64", "tmos_verify_tls", "tmos_timeout_seconds")
+    m = {
+        "tmos_host": "host",
+        "tmos_port": "port",
+        "tmos_username": "username",
+        "tmos_password": "password",
+        "tmos_auth_b64": "auth_b64",
+        "tmos_verify_tls": "verify_tls",
+        "tmos_timeout_seconds": "timeout_seconds",
+    }
+    overrides = {}
+    for k in keys:
+        if k in kwargs and kwargs[k] is not None:
+            overrides[m[k]] = kwargs[k]
+    return overrides if overrides else None
 
 
 class F5_object:
@@ -15,21 +34,20 @@ class F5_object:
         
         Parameters:
         -----------
-        object_name : str
-            리소스 이름
-        object_type : str
-            리소스 타입 (virtual, pool 등)
-        url_body : dict
-            설정 데이터
-        lines_number : str
-            로그 라인 수
+        object_name, object_type, url_body, lines_number : 기존 리소스/요청 인자
+        tmos_host, tmos_port, tmos_username, tmos_password (또는 tmos_auth_b64) : 요청 단위 연결 오버라이드.
+            넘기면 해당 호출만 이 연결로 수행 (다중 장비·비밀번호 변경 후 재인증 시 유리).
         """
         self.payload = kwargs.get('url_body')
         self.object_type = kwargs.get('object_type')
         self.object_name = kwargs.get('object_name')
         self.lines_number = kwargs.get('lines_number')
-        
-        self._settings = get_endpoint_settings(endpoint_kind)
+
+        overrides = _connection_overrides_from_kwargs(kwargs)
+        if overrides:
+            self._settings = build_endpoint_settings(**overrides)
+        else:
+            self._settings = get_endpoint_settings(endpoint_kind)
         self._session = requests.Session()
 
     def _request(self, method: str, path: str, json_body=None):

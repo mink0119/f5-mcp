@@ -51,6 +51,13 @@ Legacy keys (still supported for TMOS):
 - `IP_ADDRESS` (same as `TMOS_HOST`)
 - `Authorization_string` (same as `TMOS_AUTH_BASIC_B64`)
 
+### Per-request connection (no redeploy for new devices or password change)
+
+Every TMOS tool accepts **optional** `tmos_host`, `tmos_port`, `tmos_username`, `tmos_password`. If you pass them, **that request only** uses that connection (env is ignored for that call). So you can:
+
+- **After changing the admin password**: call the next tool (e.g. root password change) with `tmos_username="admin"`, `tmos_password="<new password>"` to avoid 401 without changing `.env` or redeploying.
+- **Multiple devices**: pass different `tmos_host` and credentials per request. No need to change code or env when adding a new device; the client (or AI) passes the target device and credentials each time.
+
 ### Optional (TMOS)
 
 - `TMOS_PORT` (default: `443`)
