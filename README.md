@@ -58,6 +58,28 @@ Every TMOS tool accepts **optional** `tmos_host`, `tmos_port`, `tmos_username`, 
 - **After changing the admin password**: call the next tool (e.g. root password change) with `tmos_username="admin"`, `tmos_password="<new password>"` to avoid 401 without changing `.env` or redeploying.
 - **Multiple devices**: pass different `tmos_host` and credentials per request. No need to change code or env when adding a new device; the client (or AI) passes the target device and credentials each time.
 
+### Device list file (소스 수정 없이 여러 장비·계정 관리)
+
+대상 장비 IP·계정이 자주 바뀌거나, **한 번에 여러 장비에 동일 설정을 배포**해야 할 때는 **장비 목록 파일**만 수정하면 됩니다. 소스/코드는 건드리지 않아도 됩니다.
+
+1. **파일 위치**  
+   - 프로젝트 루트의 `devices.yaml` 또는 `devices.json`  
+   - 또는 환경변수 `F5_DEVICES_FILE` 로 경로 지정 (예: `F5_DEVICES_FILE=./my-devices.yaml`)
+
+2. **형식**  
+   - `devices.yaml.example` 참고. `devices` 리스트에 `name`, `host`, `port`, `username`, `password` 를 넣습니다.
+
+3. **도구 사용**  
+   - `list_devices_tool()`: 현재 목록 조회 (비밀번호 제외).  
+   - 각 TMOS 도구에 **device_name** (이름으로 1대 지정), **device_index** (인덱스로 1대 지정), **apply_to_all** (목록 전체에 동일 적용) 를 줄 수 있습니다.  
+   - `tmos_host` / `tmos_username` / `tmos_password` 를 인자로 넘기면 그 연결을 우선 사용 (기존처럼 요청 단위 오버라이드).
+
+4. **우선순위**  
+   - 인자로 `tmos_host` 등 지정 → 해당 1대  
+   - `apply_to_all=True` → 장비 목록 전체  
+   - `device_name` / `device_index` → 목록에서 1대  
+   - 모두 없으면 → `.env` 기본 연결 (기존 동작)
+
 ### Optional (TMOS)
 
 - `TMOS_PORT` (default: `443`)
@@ -147,14 +169,30 @@ For **TMOS (BIG-IP)** there are two template-style flows:
 | `update_auth_user_tool(name, password=..., description=..., partition_access=..., shell=...)` | Update auth user (password, role, shell, etc.). |
 | `delete_auth_user_tool(name)` | Delete auth user. |
 
+| `list_devices_tool()` | List devices from devices.yaml / F5_DEVICES_FILE (name, host, port only). Use when using device_name / apply_to_all. |
+
 ### L4 Standard Tools
 
 | Tool | Purpose |
 |------|--------|
-| `get_l4_standard_db_state_tool()` | Read **current device values** for sys_db (8 items) and ltm connection (3 items). Use this as **Before** when comparing. |
+| `get_l4_standard_db_state_tool()` | Read **current device values** for sys_db (7 items) and ltm connection (3 items). Use this as **Before** when comparing. |
 | `get_l4_standard_profiles_state_tool()` | Read **current device settings** for the 5 standard profiles (e.g. idleTimeout, pvaAcceleration). Use this as **Before** when comparing. |
-| `apply_l4_standard_db_tool()` | Apply L4 standard sys db + ltm connection (GUI, fastl4, syn cookie, monitorencap, mgmtroutecheck, setup.run). |
+| `apply_l4_standard_db_tool()` | Apply L4 standard sys db (7) + ltm connection (3). (setup.run is applied in basic settings.) |
 | `apply_l4_standard_profiles_tool()` | Create or update standard profiles: HTTP_DEFAULT, TCP_DEFAULT, FL4_DEFAULT, FL4_UDP, clientssl_sni_default. |
+
+### HA (이중화) Tools
+
+| Tool | Purpose |
+|------|--------|
+| `get_ha_status_tool()` | HA 상태: cm devices, device groups, sync-status. |
+| `apply_ha_tool(...)` | HA 일괄 적용 (Primary 연결 기준): device 설정 → add-to-trust → device group 생성 → device 추가 → config-sync. |
+| `list_cm_devices_tool()` | cm device 목록 (configsyncIp, mirrorIp, failoverState 등). |
+| `add_to_trust_tool(peer_device_ip, peer_device_name, peer_username, peer_password)` | 현재 장비에서 피어를 trust 도메인에 추가. |
+| `create_device_group_tool(name, group_type)` | device group 생성 (sync-failover \| sync-only). |
+| `add_device_to_group_tool(group_name, device_to_add)` | device group에 device 추가. |
+| `run_config_sync_tool(group_name)` | config-sync to-group 실행. |
+
+HA 상세 파라미터·플로우: **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** Section 3.
 
 ### Recommended flow (with verification)
 
@@ -174,7 +212,7 @@ Detailed basic settings (Section 0) and L4 DB/profile list (Section 1): **`F5_TM
 |------|-------------|
 | **`README.md`** (this file) | Overview, configuration, quick reference. |
 | **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** | F5 TMOS standard process flow: basic settings (Section 0), L4 DB/Profile (Section 1), One-Arm, redundancy, VLAN/Self IP/Route, SNAT, profiles. Includes **verification flow** (Section 1.4). |
-| **`TMOS_AI_AGENT_GUIDE.md`** | Full tool list (17 tools: CRUD, auth user, basic/L4 standard), usage examples, Claude Desktop setup, and AI agent behavior. |
+| **`TMOS_AI_AGENT_GUIDE.md`** | Full tool list (CRUD, auth user, basic/L4 standard, HA), usage examples, Claude Desktop setup, and AI agent behavior. |
 
 New users: set `.env` (see Configuration above), then read `F5_TMOS_STANDARD_CONFIG_GUIDE.md` for the flow and `TMOS_AI_AGENT_GUIDE.md` for tool usage.
 

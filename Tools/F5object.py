@@ -190,7 +190,31 @@ class F5_object:
             각 서비스의 로그 레벨 범위 (emerg, alert, crit, err, warning, notice, info, debug)
         """
         return self._request("PATCH", "/mgmt/tm/sys/syslog", json_body=kwargs)
-    
+
+    def get_management_routes(self):
+        """management route 목록 조회. GET /mgmt/tm/sys/management-route (mgmt 포트 라우팅)"""
+        return self._request("GET", "/mgmt/tm/sys/management-route")
+
+    def add_management_route(
+        self,
+        name: str,
+        network: str,
+        gateway: str,
+        route_type: str = "gateway",
+        description: str = None,
+        mtu: int = None,
+    ):
+        """management route 추가. syslog를 mgmt 포트로 보낼 때 목적지로 가는 경로가 필요하면 먼저 추가.
+        name: 라우트 이름(고유), network: 'default' 또는 'x.x.x.x/prefix', gateway: 게이트웨이 IP.
+        """
+        path = "/mgmt/tm/sys/management-route"
+        body = {"name": name, "network": network, "gateway": gateway, "type": route_type}
+        if description is not None:
+            body["description"] = description
+        if mtu is not None:
+            body["mtu"] = mtu
+        return self._request("POST", path, json_body=body)
+
     def get_hostname(self):
         """현재 호스트명 조회"""
         return self._request("GET", "/mgmt/tm/sys/global-settings")
@@ -210,6 +234,22 @@ class F5_object:
         """사용자(admin, root 등) 비밀번호 설정. PATCH /mgmt/tm/auth/user/<username>"""
         path = f"/mgmt/tm/auth/user/{username}"
         return self._request("PATCH", path, json_body={"password": password})
+
+    def set_password_policy_enforcement(self, enabled: bool = False):
+        """비밀번호 정책(복잡도 등) 적용 여부. False면 disabled (tmsh: modify auth password-policy policy-enforcement disabled).
+        기본 설정 초기 세팅 시 먼저 호출해 두면 이후 비밀번호 설정 시 복잡도 제한 없이 설정 가능.
+        """
+        base = "/mgmt/tm/auth/password-policy"
+        body = {"policyEnforcement": "enabled" if enabled else "disabled"}
+        r = self._request("PATCH", base, json_body=body)
+        if isinstance(r, dict) and r.get("ok") is False and r.get("status_code") == 404:
+            r = self._request("PATCH", base + "/default", json_body=body)
+        if isinstance(r, dict) and r.get("ok") is False and r.get("status_code") == 404:
+            get_r = self._request("GET", base)
+            if get_r.get("ok") and get_r.get("body", {}).get("items"):
+                name = get_r["body"]["items"][0].get("name", "default")
+                r = self._request("PATCH", f"{base}/{name}", json_body=body)
+        return r
 
     # ============= Auth User (계정) 생성/조회/수정/삭제 =============
     def list_auth_users(self):
@@ -270,13 +310,28 @@ class F5_object:
         admin_password=None,
         root_password=None,
         syslog=None,
+        syslog_via_mgmt=False,
+        management_route_name=None,
+        management_route_network="default",
+        management_route_gateway=None,
     ):
         """장비 초기 기본 설정 템플릿: hostname, dns, ntp(+timezone), syslog, admin/root 비밀번호를 한 번에 적용.
-        인자로 넘긴 항목만 적용하며, 넘기지 않은 항목은 건너뜀.
-        syslog: dict (예: {"consoleLog": "enabled", "authPrivFrom": "warning"})
+        - 시작 시 password-policy 정책 적용을 비활성화한 뒤, hostname → dns → ntp → (선택) management route → syslog 순으로 적용.
+        - syslog_via_mgmt=True 이고 management_route_gateway 가 있으면, syslog 설정 직전에 management route 추가 (mgmt 포트로 syslog 통신 시 필요).
+        - admin/root 비밀번호 변경은 반드시 마지막에 수행.
         """
         results = []
         all_ok = True
+
+        # 1. 초기 세팅: 비밀번호 복잡도 비활성화 + 초기 UI 설정 마법사 제거 (tmsh: modify sys db setup.run value false)
+        r = self.set_password_policy_enforcement(enabled=False)
+        results.append({"step": "password_policy_disabled", "result": r})
+        if isinstance(r, dict) and r.get("ok") is False:
+            all_ok = False
+        r = self.set_sys_db("setup.run", "false")
+        results.append({"step": "setup_run_disabled", "result": r})
+        if isinstance(r, dict) and r.get("ok") is False:
+            all_ok = False
 
         if hostname is not None and hostname != "":
             r = self.set_hostname(hostname)
@@ -296,12 +351,32 @@ class F5_object:
             if isinstance(r, dict) and r.get("ok") is False:
                 all_ok = False
 
+        # syslog를 mgmt 포트로 보낼 경우: 먼저 management route 추가
+        if (
+            syslog is not None
+            and isinstance(syslog, dict)
+            and syslog
+            and syslog_via_mgmt
+            and management_route_gateway
+        ):
+            route_name = management_route_name or "syslog_mgmt_route"
+            r = self.add_management_route(
+                name=route_name,
+                network=management_route_network,
+                gateway=management_route_gateway,
+                description="route for syslog via management port",
+            )
+            results.append({"step": "management_route", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False:
+                all_ok = False
+
         if syslog is not None and isinstance(syslog, dict) and syslog:
             r = self.set_syslog(**syslog)
             results.append({"step": "syslog", "result": r})
             if isinstance(r, dict) and r.get("ok") is False:
                 all_ok = False
 
+        # 비밀번호 변경은 항상 마지막 (중간에 변경 시 이후 API 인증 실패 방지)
         if admin_password is not None and admin_password != "":
             r = self.set_user_password("admin", admin_password)
             results.append({"step": "admin_password", "result": r})
@@ -313,6 +388,205 @@ class F5_object:
             results.append({"step": "root_password", "result": r})
             if isinstance(r, dict) and r.get("ok") is False:
                 all_ok = False
+
+        return {"ok": all_ok, "results": results}
+
+    # ============= HA(이중화) 설정 =============
+    def list_cm_devices(self):
+        """cm device 목록 조회. GET /mgmt/tm/cm/device (selfDevice, hostname, configsyncIp 등 확인용)"""
+        return self._request("GET", "/mgmt/tm/cm/device")
+
+    def get_cm_device(self, device_name: str, partition: str = "Common"):
+        """단일 cm device 조회. device_name은 호스트명 등. partition 기본 Common."""
+        path = f"/mgmt/tm/cm/device/~{partition}~{device_name}"
+        return self._request("GET", path)
+
+    def update_cm_device(
+        self,
+        device_name: str,
+        configsync_ip: str = None,
+        mirror_ip: str = None,
+        unicast_addresses: list = None,
+        partition: str = "Common",
+    ):
+        """cm device 설정 수정 (configsyncIp, mirrorIp, unicastAddress).
+        unicast_addresses: [ {"ip": "x.x.x.x", "port": 1026}, ... ] (failover 통신용)
+        """
+        path = f"/mgmt/tm/cm/device/~{partition}~{device_name}"
+        body = {}
+        if configsync_ip is not None:
+            body["configsyncIp"] = configsync_ip
+        if mirror_ip is not None:
+            body["mirrorIp"] = mirror_ip
+        if unicast_addresses is not None:
+            body["unicastAddress"] = unicast_addresses
+        if not body:
+            return {"ok": False, "error": "configsync_ip, mirror_ip, unicast_addresses 중 하나 이상 필요"}
+        return self._request("PATCH", path, json_body=body)
+
+    def add_to_trust(
+        self,
+        device: str,
+        device_name: str,
+        username: str,
+        password: str,
+        port: int = None,
+    ):
+        """피어 장비를 trust 도메인에 추가. device=피어 mgmt IP 또는 FQDN, device_name=피어 호스트명."""
+        path = "/mgmt/tm/cm/add-to-trust"
+        body = {
+            "device": device,
+            "deviceName": device_name,
+            "username": username,
+            "password": password,
+        }
+        if port is not None:
+            body["port"] = port
+        return self._request("POST", path, json_body=body)
+
+    def list_cm_device_groups(self):
+        """device group 목록 조회. GET /mgmt/tm/cm/device-group"""
+        return self._request("GET", "/mgmt/tm/cm/device-group")
+
+    def create_cm_device_group(
+        self,
+        name: str,
+        group_type: str = "sync-failover",
+        auto_sync: str = None,
+        partition: str = "Common",
+        **kwargs,
+    ):
+        """device group 생성. group_type: sync-failover | sync-only."""
+        path = "/mgmt/tm/cm/device-group"
+        body = {"name": name, "type": group_type}
+        if auto_sync is not None:
+            body["autoSync"] = auto_sync
+        for k, v in kwargs.items():
+            if v is not None:
+                body[k] = v
+        return self._request("POST", path, json_body=body)
+
+    def get_cm_device_group_devices(self, group_name: str, partition: str = "Common"):
+        """device group에 속한 device 목록 조회."""
+        path = f"/mgmt/tm/cm/device-group/~{partition}~{group_name}/devices"
+        return self._request("GET", path)
+
+    def add_cm_device_to_group(self, group_name: str, device_name: str, partition: str = "Common"):
+        """device group에 device 추가. device_name은 cm device 이름(호스트명)."""
+        path = f"/mgmt/tm/cm/device-group/~{partition}~{group_name}/devices"
+        # REST에서 추가 시 name으로 참조. 형식은 ~partition~deviceName
+        body = {"name": f"~{partition}~{device_name}"}
+        return self._request("POST", path, json_body=body)
+
+    def run_config_sync_to_group(self, group_name: str):
+        """config-sync to-group 실행 (tmsh run cm config-sync to-group <name>)."""
+        path = "/mgmt/tm/util/bash"
+        cmd = f"tmsh run cm config-sync to-group {group_name}"
+        body = {"command": "run", "utilCmdArgs": f"-c '{cmd}'"}
+        return self._request("POST", path, json_body=body)
+
+    def get_cm_sync_status(self):
+        """HA/Sync 상태 조회. GET /mgmt/tm/cm/sync-status"""
+        return self._request("GET", "/mgmt/tm/cm/sync-status")
+
+    def apply_ha_settings(
+        self,
+        group_name: str,
+        group_type: str,
+        primary_hostname: str,
+        primary_configsync_ip: str,
+        primary_mirror_ip: str,
+        primary_unicast: list,
+        secondary_device_ip: str,
+        secondary_device_name: str,
+        secondary_username: str,
+        secondary_password: str,
+        secondary_configsync_ip: str,
+        secondary_mirror_ip: str,
+        secondary_unicast: list,
+        secondary_port: int = None,
+    ):
+        """HA 이중화 일괄 적용 (현재 연결이 Primary 기준).
+        1) Primary self device 설정 2) Secondary self device 설정(별도 연결) 3) add-to-trust 4) device group 생성 5) 두 device 추가 6) config-sync.
+        secondary_unicast/primary_unicast: [ {"ip": "x.x.x.x", "port": 1026}, ... ]
+        """
+        from Tools.settings import build_endpoint_settings
+
+        results = []
+        all_ok = True
+
+        # 1. Primary(self) device 설정
+        r = self.update_cm_device(
+            primary_hostname,
+            configsync_ip=primary_configsync_ip,
+            mirror_ip=primary_mirror_ip,
+            unicast_addresses=primary_unicast,
+        )
+        results.append({"step": "primary_device_config", "result": r})
+        if isinstance(r, dict) and r.get("ok") is False and "status_code" in r:
+            all_ok = False
+
+        # 2. Secondary device 설정 (Secondary에 연결해 PATCH)
+        sec_settings = build_endpoint_settings(
+            host=secondary_device_ip,
+            port=secondary_port or 443,
+            username=secondary_username,
+            password=secondary_password,
+        )
+        sec_session = requests.Session()
+        sec_url = f"{sec_settings.base_url}/mgmt/tm/cm/device/~Common~{secondary_device_name}"
+        try:
+            sec_resp = sec_session.request(
+                "PATCH",
+                sec_url,
+                headers=sec_settings.headers,
+                json={
+                    "configsyncIp": secondary_configsync_ip,
+                    "mirrorIp": secondary_mirror_ip,
+                    "unicastAddress": secondary_unicast,
+                },
+                verify=getattr(sec_settings, "verify_tls", False),
+                timeout=getattr(sec_settings, "timeout_seconds", 20),
+            )
+            sec_body = sec_resp.json() if sec_resp.headers.get("Content-Type", "").find("json") >= 0 else sec_resp.text
+            r = sec_body if sec_resp.ok else {"ok": False, "status_code": sec_resp.status_code, "body": sec_body}
+        except Exception as e:
+            r = {"ok": False, "error": str(e)}
+        sec_session.close()
+        results.append({"step": "secondary_device_config", "result": r})
+        if isinstance(r, dict) and (r.get("ok") is False or r.get("status_code", 0) not in (0, 200)):
+            all_ok = False
+
+        # 3. Primary에서 Secondary를 trust에 추가
+        r = self.add_to_trust(
+            device=secondary_device_ip,
+            device_name=secondary_device_name,
+            username=secondary_username,
+            password=secondary_password,
+            port=secondary_port,
+        )
+        results.append({"step": "add_to_trust", "result": r})
+        if isinstance(r, dict) and r.get("ok") is False and "status_code" in r:
+            all_ok = False
+
+        # 4. Device group 생성
+        r = self.create_cm_device_group(name=group_name, group_type=group_type)
+        results.append({"step": "create_device_group", "result": r})
+        if isinstance(r, dict) and r.get("ok") is False and "status_code" in r:
+            all_ok = False
+
+        # 5. 두 device를 group에 추가
+        for dev_name in (primary_hostname, secondary_device_name):
+            r = self.add_cm_device_to_group(group_name, dev_name)
+            results.append({"step": f"add_to_group_{dev_name}", "result": r})
+            if isinstance(r, dict) and r.get("ok") is False and "status_code" in r:
+                all_ok = False
+
+        # 6. Config sync 실행
+        r = self.run_config_sync_to_group(group_name)
+        results.append({"step": "config_sync", "result": r})
+        if isinstance(r, dict) and r.get("ok") is False and "status_code" in r:
+            all_ok = False
 
         return {"ok": all_ok, "results": results}
 
@@ -343,7 +617,7 @@ class F5_object:
 
     def get_l4_standard_db_state(self):
         """L4 표준 DB 관련 항목의 장비 현재값을 조회. 적용 전/후 비교용.
-        반환: sys_db 8개 실제 value, connection 3개 실제값. 조회 실패 시 해당 키에 error 포함.
+        반환: sys_db 7개 실제 value, connection 3개 실제값. (setup.run은 기본 설정에서 적용) 조회 실패 시 해당 키에 error 포함.
         """
         db_keys = [
             "ui.system.preferences.recordsperscreen",
@@ -353,7 +627,6 @@ class F5_object:
             "tm.dupsynenforce",
             "tm.monitorencap",
             "bigd.mgmtroutecheck",
-            "setup.run",
         ]
         sys_db = {}
         for name in db_keys:
@@ -427,7 +700,7 @@ class F5_object:
         return result
 
     def apply_l4_standard_db(self):
-        """L4 표준 DB 설정 일괄 적용 (sys db 8개 + ltm connection 3개)"""
+        """L4 표준 DB 설정 일괄 적용 (sys db 7개 + ltm connection 3개). setup.run은 기본 설정(apply_basic_settings)에서 적용."""
         db_vars = [
             ("ui.system.preferences.recordsperscreen", "100"),
             ("ui.system.preferences.advancedselection", "advanced"),
@@ -436,7 +709,6 @@ class F5_object:
             ("tm.dupsynenforce", "disable"),
             ("tm.monitorencap", "enable"),
             ("bigd.mgmtroutecheck", "enable"),
-            ("setup.run", "false"),
         ]
         results = []
         all_ok = True

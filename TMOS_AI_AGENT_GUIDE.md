@@ -323,7 +323,7 @@ apply_basic_settings_tool(hostname="f5-01", nameservers=["8.8.8.8"], ntp_servers
 ```
 
 ### 14. apply_l4_standard_db_tool
-**목적:** L4 표준 DB 설정 일괄 적용 (GUI 옵션, fastl4 ack mirror, syn cookie 비활성화, dupsynenforce, monitorencap, mgmtroutecheck, setup.run, ltm connection)
+**목적:** L4 표준 DB 설정 일괄 적용 (GUI 옵션, fastl4 ack mirror, syn cookie 비활성화, dupsynenforce, monitorencap, mgmtroutecheck, ltm connection). setup.run은 기본 설정(apply_basic_settings)에서 적용.
 
 ```
 파라미터: (없음)

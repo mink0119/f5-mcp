@@ -1,11 +1,12 @@
 """F5 TMOS 연결 설정 관리"""
 
 import base64
+import json
 import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from dotenv import load_dotenv
 
@@ -89,6 +90,68 @@ def get_endpoint_settings(kind: str = "TMOS") -> EndpointSettings:
         timeout_key="TMOS_TIMEOUT_SECONDS",
         default_port=443,
     )
+
+
+def _project_root() -> Path:
+    """f5-mcp 프로젝트 루트 (Tools의 상위)"""
+    return Path(__file__).resolve().parent.parent
+
+
+def load_devices_from_file(path: Optional[str] = None) -> List[Dict[str, Any]]:
+    """장비 목록 파일에서 디바이스 목록 로드. 소스 수정 없이 IP/계정만 이 파일로 관리 가능.
+    path: 없으면 F5_DEVICES_FILE 환경변수, 없으면 프로젝트 루트의 devices.yaml / devices.json
+    반환: [ {"name": str, "host": str, "port": int, "username": str, "password": str}, ... ]
+    """
+    root = _project_root()
+    if path is None:
+        path = os.getenv("F5_DEVICES_FILE", "").strip()
+    if not path:
+        for name in ("devices.yaml", "devices.yml", "devices.json"):
+            p = root / name
+            if p.exists():
+                path = str(p)
+                break
+    if not path or not Path(path).exists():
+        return []
+    path = Path(path)
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    if path.suffix.lower() in (".yaml", ".yml"):
+        try:
+            import yaml
+            data = yaml.safe_load(raw)
+        except Exception:
+            return []
+    else:
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return []
+    if not data:
+        return []
+    items = data.get("devices", data) if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        return []
+    out = []
+    for i, d in enumerate(items):
+        if not isinstance(d, dict):
+            continue
+        name = d.get("name") or d.get("host") or f"device-{i}"
+        host = (d.get("host") or "").strip()
+        if not host:
+            continue
+        port = d.get("port")
+        if port is None:
+            port = 443
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            port = 443
+        username = (d.get("username") or "").strip()
+        password = (d.get("password") or "").strip()
+        if not username or not password:
+            continue
+        out.append({"name": str(name), "host": host, "port": port, "username": username, "password": password})
+    return out
 
 
 def build_endpoint_settings(
