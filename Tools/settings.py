@@ -1,14 +1,10 @@
-"""F5 TMOS 연결 설정 관리"""
+"""F5 TMOS 연결 설정 (요청 단위로만 사용, 저장소/파일 없음)"""
 
 import base64
-import json
-import os
 from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict
 
-from dotenv import load_dotenv
+# .env / devices 파일 로드 제거 — mgmt IP·계정·비밀번호는 호출 시마다 인자로 전달
 
 
 @dataclass(frozen=True)
@@ -33,125 +29,10 @@ class EndpointSettings:
         }
 
 
-def _parse_bool(value: Optional[str], default: bool = False) -> bool:
-    """문자열을 boolean으로 변환"""
+def _parse_bool(value: Optional[bool], default: bool = False) -> bool:
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
-
-
-def _parse_int(value: Optional[str], default: int = 20) -> int:
-    """문자열을 integer로 변환"""
-    if value is None:
-        return default
-    try:
-        return int(value)
-    except ValueError:
-        return default
-
-
-def _load_env():
-    """환경변수 파일 로드"""
-    env_path = Path(__file__).resolve().parent.parent / ".env"
-    load_dotenv(env_path)
-
-
-def _endpoint_from_env(host_key: str, port_key: str, auth_key: str, 
-                       verify_key: str, timeout_key: str, default_port: int) -> EndpointSettings:
-    """환경변수에서 설정 값 읽기"""
-    _load_env()
-    
-    host = os.getenv(host_key, "").strip()
-    auth = os.getenv(auth_key, "").strip()
-    port = _parse_int(os.getenv(port_key), default_port)
-    verify_tls = _parse_bool(os.getenv(verify_key), False)
-    timeout_seconds = _parse_int(os.getenv(timeout_key), 20)
-
-    if not host or not auth:
-        raise ValueError(f"TMOS 연결 정보 부족: {host_key}, {auth_key} 확인 필요")
-
-    return EndpointSettings(
-        host=host,
-        port=port,
-        auth_basic_b64=auth,
-        verify_tls=verify_tls,
-        timeout_seconds=timeout_seconds,
-    )
-
-
-@lru_cache(maxsize=1)
-def get_endpoint_settings(kind: str = "TMOS") -> EndpointSettings:
-    """TMOS 설정 조회 (환경변수 기준)"""
-    return _endpoint_from_env(
-        host_key="TMOS_HOST",
-        port_key="TMOS_PORT",
-        auth_key="TMOS_AUTH_BASIC_B64",
-        verify_key="TMOS_VERIFY_TLS",
-        timeout_key="TMOS_TIMEOUT_SECONDS",
-        default_port=443,
-    )
-
-
-def _project_root() -> Path:
-    """f5-mcp 프로젝트 루트 (Tools의 상위)"""
-    return Path(__file__).resolve().parent.parent
-
-
-def load_devices_from_file(path: Optional[str] = None) -> List[Dict[str, Any]]:
-    """장비 목록 파일에서 디바이스 목록 로드. 소스 수정 없이 IP/계정만 이 파일로 관리 가능.
-    path: 없으면 F5_DEVICES_FILE 환경변수, 없으면 프로젝트 루트의 devices.yaml / devices.json
-    반환: [ {"name": str, "host": str, "port": int, "username": str, "password": str}, ... ]
-    """
-    root = _project_root()
-    if path is None:
-        path = os.getenv("F5_DEVICES_FILE", "").strip()
-    if not path:
-        for name in ("devices.yaml", "devices.yml", "devices.json"):
-            p = root / name
-            if p.exists():
-                path = str(p)
-                break
-    if not path or not Path(path).exists():
-        return []
-    path = Path(path)
-    raw = path.read_text(encoding="utf-8", errors="replace")
-    if path.suffix.lower() in (".yaml", ".yml"):
-        try:
-            import yaml
-            data = yaml.safe_load(raw)
-        except Exception:
-            return []
-    else:
-        try:
-            data = json.loads(raw)
-        except Exception:
-            return []
-    if not data:
-        return []
-    items = data.get("devices", data) if isinstance(data, dict) else data
-    if not isinstance(items, list):
-        return []
-    out = []
-    for i, d in enumerate(items):
-        if not isinstance(d, dict):
-            continue
-        name = d.get("name") or d.get("host") or f"device-{i}"
-        host = (d.get("host") or "").strip()
-        if not host:
-            continue
-        port = d.get("port")
-        if port is None:
-            port = 443
-        try:
-            port = int(port)
-        except (TypeError, ValueError):
-            port = 443
-        username = (d.get("username") or "").strip()
-        password = (d.get("password") or "").strip()
-        if not username or not password:
-            continue
-        out.append({"name": str(name), "host": host, "port": port, "username": username, "password": password})
-    return out
+    return bool(value)
 
 
 def build_endpoint_settings(
@@ -163,32 +44,17 @@ def build_endpoint_settings(
     verify_tls: Optional[bool] = None,
     timeout_seconds: Optional[int] = None,
 ) -> EndpointSettings:
-    """요청 단위 연결 정보로 EndpointSettings 생성. 누락된 값은 환경변수로 채움.
-    다중 장비·계정 변경 시 호출마다 다른 host/username/password 전달 가능.
-    """
+    """요청 단위 연결 정보로 EndpointSettings 생성. mgmt IP·계정·비밀번호는 호출 시마다 전달해야 함."""
     if auth_b64 is None and username is not None and password is not None:
         auth_b64 = base64.b64encode(f"{username}:{password}".encode()).decode()
-    # 전부 넘어오면 env 불필요
-    if host and auth_b64:
-        return EndpointSettings(
-            host=host.strip(),
-            port=port if port is not None else 443,
-            auth_basic_b64=auth_b64.strip(),
-            verify_tls=verify_tls if verify_tls is not None else False,
-            timeout_seconds=timeout_seconds if timeout_seconds is not None else 20,
+    if not (host and host.strip()) or not (auth_b64 and auth_b64.strip()):
+        raise ValueError(
+            "TMOS 연결 정보가 필요합니다. host와 인증(auth_b64 또는 username+password)을 모두 입력해 주세요."
         )
-    # 일부만 넘어오면 나머지는 env
-    defaults = get_endpoint_settings("TMOS")
-    out_host = (host or defaults.host).strip()
-    out_auth = (auth_b64 or defaults.auth_basic_b64).strip()
-    if not out_host or not out_auth:
-        raise ValueError("TMOS 연결 정보 부족: host와 인증( auth_b64 또는 username+password ) 필요. 또는 환경변수 TMOS_HOST, TMOS_AUTH_BASIC_B64 설정.")
     return EndpointSettings(
-        host=out_host,
-        port=port if port is not None else defaults.port,
-        auth_basic_b64=out_auth,
-        verify_tls=verify_tls if verify_tls is not None else defaults.verify_tls,
-        timeout_seconds=timeout_seconds if timeout_seconds is not None else defaults.timeout_seconds,
+        host=host.strip(),
+        port=port if port is not None else 443,
+        auth_basic_b64=auth_b64.strip(),
+        verify_tls=_parse_bool(verify_tls, False),
+        timeout_seconds=timeout_seconds if timeout_seconds is not None else 20,
     )
-
-

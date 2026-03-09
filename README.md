@@ -7,7 +7,12 @@
 
 This project is a **MCP (Model Context Protocol) server** that talks to F5 devices via the **iControl REST API**. It exposes tools for managing F5 TMOS (BIG-IP) objects (virtual servers, pools, profiles, etc.) and for applying **L4 standard settings** (DB and profiles) with optional before/after verification.
 
-**For new users:** Configure `.env` (see [Configuration](#configuration-env)), point your MCP client (e.g. Claude Desktop) at this server, then see [Documentation (Guides)](#documentation-guides) for the process flow and tool usage.
+**For new users:** 접속 정보(mgmt IP·계정·비밀번호)는 도구 호출 시마다 **tmos_host**, **tmos_username**, **tmos_password** 로 입력합니다. MCP 클라이언트(예: Claude Desktop)를 이 서버에 연결한 뒤 [Documentation (Guides)](#documentation-guides)에서 플로우와 도구 사용법을 참고하세요.
+
+## Running MCP on Windows and macOS
+
+이 서버는 **Windows**와 **macOS** 모두에서 동작합니다.  
+**설치·배포·실행 방법**은 **[DEPLOYMENT_AND_USAGE.md](DEPLOYMENT_AND_USAGE.md)** 를 참고하세요 (Python 설치, 의존성, .env, 터미널 실행, Claude Desktop 설정까지 단계별 안내).
 
 ## Features
 
@@ -18,100 +23,16 @@ This project is a **MCP (Model Context Protocol) server** that talks to F5 devic
 - **Transport Support**: The server runs using the `stdio` transport, making it compatible with various client integrations.
 - **Dockerfile**: If you want to run this as a Docker container
 
-## Configuration (.env)
+## Configuration — 접속 정보 (mgmt IP·계정·비밀번호)
 
-The server reads configuration from environment variables (optionally from the project `.env` file).
+**이 서버는 접속 정보를 파일이나 환경변수에 저장하지 않습니다.**  
+모든 TMOS 도구 호출 시 **tmos_host**(관리 IP), **tmos_username**, **tmos_password** 를 **필수**로 입력하고, 필요 시 **tmos_port**(기본 443)를 입력합니다. Claude 등에서 도구를 쓸 때마다 사용자가 mgmt IP·계정·비밀번호를 넣으면 됩니다.
 
-A generic helper chooses which device API to use based on the
-``F5_ENDPOINT_TYPE`` environment variable.  Valid values are ``TMOS`` (the
-default) and ``F5OS``; if the variable is not present the MCP will connect
-using the TMOS/iControl REST settings.
+- **tmos_host**: F5 관리 IP (필수)
+- **tmos_username** / **tmos_password**: 계정·비밀번호 (필수)
+- **tmos_port**: 포트 (선택, 기본 443)
 
-For convenience you may also set the _generic_ variables ``F5_HOST``,
-``F5_PORT``, ``F5_AUTH_BASIC_B64``, ``F5_VERIFY_TLS`` and
-``F5_TIMEOUT_SECONDS``.  If ``F5_HOST`` is defined those values override the
-per‑endpoint variables regardless of the selected type.
-
-
-### Endpoints
-
-This project can be configured with **two separate endpoints**; the active
-one is selected by ``F5_ENDPOINT_TYPE`` (see above).
-
-- **TMOS (iControl REST)**: used by the current LTM tools (`/mgmt/tm/...`)
-- **F5OS (RESTCONF)**: reserved for future RESTCONF tools (`/restconf/...`)
-
-### Required (TMOS)
-
-- `TMOS_HOST`
-- `TMOS_AUTH_BASIC_B64` (Base64 of `username:password`, without the `Basic ` prefix)
-
-Legacy keys (still supported for TMOS):
-
-- `IP_ADDRESS` (same as `TMOS_HOST`)
-- `Authorization_string` (same as `TMOS_AUTH_BASIC_B64`)
-
-### Per-request connection (no redeploy for new devices or password change)
-
-Every TMOS tool accepts **optional** `tmos_host`, `tmos_port`, `tmos_username`, `tmos_password`. If you pass them, **that request only** uses that connection (env is ignored for that call). So you can:
-
-- **After changing the admin password**: call the next tool (e.g. root password change) with `tmos_username="admin"`, `tmos_password="<new password>"` to avoid 401 without changing `.env` or redeploying.
-- **Multiple devices**: pass different `tmos_host` and credentials per request. No need to change code or env when adding a new device; the client (or AI) passes the target device and credentials each time.
-
-### Device list file (소스 수정 없이 여러 장비·계정 관리)
-
-대상 장비 IP·계정이 자주 바뀌거나, **한 번에 여러 장비에 동일 설정을 배포**해야 할 때는 **장비 목록 파일**만 수정하면 됩니다. 소스/코드는 건드리지 않아도 됩니다.
-
-1. **파일 위치**  
-   - 프로젝트 루트의 `devices.yaml` 또는 `devices.json`  
-   - 또는 환경변수 `F5_DEVICES_FILE` 로 경로 지정 (예: `F5_DEVICES_FILE=./my-devices.yaml`)
-
-2. **형식**  
-   - `devices.yaml.example` 참고. `devices` 리스트에 `name`, `host`, `port`, `username`, `password` 를 넣습니다.
-
-3. **도구 사용**  
-   - `list_devices_tool()`: 현재 목록 조회 (비밀번호 제외).  
-   - 각 TMOS 도구에 **device_name** (이름으로 1대 지정), **device_index** (인덱스로 1대 지정), **apply_to_all** (목록 전체에 동일 적용) 를 줄 수 있습니다.  
-   - `tmos_host` / `tmos_username` / `tmos_password` 를 인자로 넘기면 그 연결을 우선 사용 (기존처럼 요청 단위 오버라이드).
-
-4. **우선순위**  
-   - 인자로 `tmos_host` 등 지정 → 해당 1대  
-   - `apply_to_all=True` → 장비 목록 전체  
-   - `device_name` / `device_index` → 목록에서 1대  
-   - 모두 없으면 → `.env` 기본 연결 (기존 동작)
-
-### Optional (TMOS)
-
-- `TMOS_PORT` (default: `443`)
-- `TMOS_VERIFY_TLS` (default: `false`)
-- `TMOS_TIMEOUT_SECONDS` (default: `20`)
-
-### Required (F5OS)
-
-- `F5OS_HOST`
-- `F5OS_AUTH_BASIC_B64`
-
-### Optional (F5OS)
-
-- `F5OS_PORT` (default: `8888`)
-- `F5OS_VERIFY_TLS` (default: `false`)
-- `F5OS_TIMEOUT_SECONDS` (default: `20`)
-
-Example `.env`:
-
-```bash
-TMOS_HOST=192.168.47.55
-TMOS_PORT=443
-TMOS_AUTH_BASIC_B64=YWRtaW46YWRtaW4=
-TMOS_VERIFY_TLS=false
-TMOS_TIMEOUT_SECONDS=20
-
-F5OS_HOST=192.168.45.246
-F5OS_PORT=8888
-F5OS_AUTH_BASIC_B64=YWRtaW46YWRtaW4=
-F5OS_VERIFY_TLS=false
-F5OS_TIMEOUT_SECONDS=20
-```
+F5OS 도구는 별도 엔드포인트 타입으로, 필요 시 Claude Desktop MCP 설정의 `env` 등에서 지정할 수 있습니다.
 
 ## F5OS Standard Configuration
 
@@ -194,6 +115,25 @@ For **TMOS (BIG-IP)** there are two template-style flows:
 
 HA 상세 파라미터·플로우: **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** Section 3.
 
+### Generic TMOS API Tools (모든 설정 생성/수정/삭제)
+
+기본·표준 설정 **외** [F5 iControl REST API](https://clouddocs.f5.com/api/icontrol-rest/APIRef.html) 스펙의 **모든** 엔드포인트를 path로 호출해 자연어 요청을 처리할 수 있습니다.
+
+| Tool | Purpose |
+|------|--------|
+| `tm_api_reference_tool()` | API 네임스페이스 요약 및 path 참고 (ltm, net, sys, cm, auth, gtm 등). |
+| `tm_get_tool(path)` | GET — 컬렉션 또는 단일 리소스 조회. |
+| `tm_post_tool(path, body)` | POST — 리소스 생성 또는 액션. |
+| `tm_patch_tool(path, body)` | PATCH — 리소스 일부 수정. |
+| `tm_put_tool(path, body)` | PUT — 리소스 전체 교체. |
+| `tm_delete_tool(path)` | DELETE — 리소스 삭제. |
+
+- **path**: tm 하위 경로 (예: `ltm/pool`, `ltm/pool/~Common~my_pool`, `net/vlan`, `sys/syslog`). 상세 스펙은 [APIRef](https://clouddocs.f5.com/api/icontrol-rest/APIRef.html) 참고.
+- **body**: API 속성(camelCase). 각 리소스 페이지의 Properties 표 기준.
+
+**list_tool / create_tool / update_tool / delete_tool / get_one_tool** 도 **resource_path**로 모든 리소스에 사용 가능 (LTM뿐 아니라 **net/vlan**, **net/self**, **ltm/pool** 등). 예: `list_tool(resource_path="net/vlan")`, `create_tool(resource_path="net/vlan", url_body={"name":"vlan100","tag":100})`, `delete_tool(resource_path="net/vlan", object_name="vlan100")`.  
+상세: **`F5_TMOS_API_GENERIC_GUIDE.md`**.
+
 ### Recommended flow (with verification)
 
 To get a correct **before/after** report (and avoid showing wrong "before" values like default 120 instead of actual device 300):
@@ -211,10 +151,14 @@ Detailed basic settings (Section 0) and L4 DB/profile list (Section 1): **`F5_TM
 | File | Description |
 |------|-------------|
 | **`README.md`** (this file) | Overview, configuration, quick reference. |
+| **`DEPLOYMENT_AND_USAGE.md`** | **Windows / macOS 설치·배포·사용 가이드**: Python 설치, 의존성, .env, 터미널 실행, Claude Desktop 연동. |
 | **`F5_TMOS_STANDARD_CONFIG_GUIDE.md`** | F5 TMOS standard process flow: basic settings (Section 0), L4 DB/Profile (Section 1), One-Arm, redundancy, VLAN/Self IP/Route, SNAT, profiles. Includes **verification flow** (Section 1.4). |
 | **`TMOS_AI_AGENT_GUIDE.md`** | Full tool list (CRUD, auth user, basic/L4 standard, HA), usage examples, Claude Desktop setup, and AI agent behavior. |
+| **`F5_TMOS_API_GENERIC_GUIDE.md`** | Generic TMOS API (tm_get/post/patch/put/delete): 모든 설정을 API path로 생성/수정/삭제, 자연어 매핑 예시. |
+| **`CLAUDE_CACHE_AND_MCP.md`** | 코드 수정 후 Claude에서 같은 오류가 반복될 때: MCP 재시작 및 설정 확인 절차. |
+| **`DEVELOPMENT_GUIDELINES.md`** | 코드 수정 시 참고하는 개발 가이드라인. 코드 리뷰 체크리스트, 문서 규칙, 코드 스타일. |
 
-New users: set `.env` (see Configuration above), then read `F5_TMOS_STANDARD_CONFIG_GUIDE.md` for the flow and `TMOS_AI_AGENT_GUIDE.md` for tool usage.
+New users: **설치·실행**은 `DEPLOYMENT_AND_USAGE.md`, **설정 플로우**는 `F5_TMOS_STANDARD_CONFIG_GUIDE.md`, **도구 사용법**은 `TMOS_AI_AGENT_GUIDE.md`를 참고하세요. 코드 수정 후 Claude가 이전처럼 동작하면 **`CLAUDE_CACHE_AND_MCP.md`** (MCP 재시작·설정 확인)를 참고하세요.
 
 ---
 
@@ -226,7 +170,7 @@ New users: set `.env` (see Configuration above), then read `F5_TMOS_STANDARD_CON
 The repo also contains an example of the Claude desktop app config file.  
 Only `F5object.py` is used from the Tools folder. The others were used in development.
 
-**Commit after changes:** With **f5-mcp** open as your project folder, run **`./scripts/commit-if-changes.sh "무엇을 수정했는지 설명"`** (meaningful message required). See **`scripts/auto-commit-on-change.md`** for details.
+**Commit after changes:** With **f5-mcp** open as your project folder, run **`./scripts/commit-if-changes.sh "무엇을 수정했는지 설명"`** (meaningful message required).
 
 ### `It was tested with the Claude Desktop app. The MCP server was hosted in Windows WSL.`
 

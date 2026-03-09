@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "f5-mcp": {
-      "command": "/Users/minkyu/Downloads/2.git/f5-mcp/scripts/run_mcp.sh",
+      "command": "/ABSOLUTE/PATH/TO/f5-mcp/scripts/run_mcp.sh",
       "args": [],
       "env": {
         "F5_ENDPOINT_TYPE": "F5OS"

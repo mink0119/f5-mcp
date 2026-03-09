@@ -33,7 +33,14 @@ AI Agent 응답:
 ```
 
 ### 4. "기본 설정 해줘" 요청 시
-- **apply_basic_settings_tool**을 사용한다. 사용자가 준 값만 인자로 넘긴다 (hostname, nameservers, ntp_servers, timezone, admin_password, root_password, syslog 관련 인자). 생략된 항목은 넘기지 않으면 툴이 해당 항목을 건너뛴다.
+
+**강제 규칙 (반드시 준수):**
+- **Request에 넣지 말 것:** 사용자가 말로 지정하지 않은 항목은 **apply_basic_settings_tool 호출 시 인자로 아예 넣지 않는다.** 즉, 사용자가 hostname/NTP/DNS/timezone/syslog/admin·root 비밀번호를 말하지 않았으면, **호출 시 hostname, nameservers, ntp_servers, timezone, syslog, admin_password, root_password 인자는 생략한다.** 장비에서 조회한 값(get_hostname, NTP/DNS 조회 등)은 "사용자가 지정한 값"이 아니므로 **절대** 이 인자들로 넘기지 않는다.
+- 사용자가 "기본설정 해줘"만 했을 때(어떤 항목도 지정 안 했을 때): **apply_basic_settings_tool 호출 시 hostname, nameservers, ntp_servers, timezone 은 넣지 않고**, **apply_only_keys=[]** 와 연결 정보(tmos_host, tmos_username, tmos_password, 필요 시 device_name)만 넘긴다. 그러면 도구가 ask_user를 반환하고, 사용자에게 guide/message로 입력을 요청한다.
+- 사용자가 "hostname f5-01, admin 비밀번호만 설정해줘"라고 했을 때: **apply_only_keys=["hostname", "admin_password"]**, hostname="f5-01", admin_password="..." 만 넘기고, **nameservers, ntp_servers, timezone 은 인자로 넣지 않는다.**
+- **금지:** 장비에서 조회한 값으로 hostname, nameservers, ntp_servers, timezone 등을 채워서 호출하지 않는다. 사용자가 지정하지 않았으면 해당 인자는 호출에서 완전히 생략한다.
+- **반환값에 action: "ask_user" 또는 do_not_report_as_complete: true 가 있으면 기본설정이 완료된 것이 아니다. "기본설정 완료", "1호기 기본설정 완료" 등으로 말하면 안 된다.** 대신 basic_settings_guide와 message를 사용자에게 보여주고 값을 입력받은 뒤, 받은 값으로 `apply_basic_settings_tool`을 다시 호출한다.
+- 툴 반환값에 **action: "ask_user"** 가 있으면: **basic_settings_guide** 가 있으면 먼저 "기본 설정에서 진행하는 항목"을 표로 정리해 보여 주고(각 항목의 label, description, example), 그 다음 **message** 로 "어떤 항목에 어떤 값을 넣을지 알려주세요"라고 요청한 뒤, 사용자가 입력한 값만으로 `apply_basic_settings_tool` 을 다시 호출한다. **skipped** 가 있으면 "다음 항목은 값을 넣지 않아 건너뛰었습니다: …" 로 안내한다.
 
 ### 4-0. "계정 추가/삭제/변경" 요청 시
 - **추가**: `create_auth_user_tool(name="사용자명", password="비밀번호", partition_access=[{"name": "all-partitions", "role": "admin"}])` 사용. admin 권한이면 role="admin".
