@@ -55,7 +55,6 @@
 
 | 문서 | 역할 |
 |------|------|
-| **README.md** | 개요, 설치, .env(선택), 문서 인덱스 |
 | **DEPLOYMENT_AND_USAGE.md** | Windows/macOS 설치·배포·사용 (Python, 의존성, Claude 연동) |
 | **TMOS_AI_AGENT_GUIDE.md** (또는 USAGE_GUIDE) | 사용법·시나리오·자연어 예시·툴 호출 순서 |
 | **AI_AGENT_SYSTEM_PROMPT.md** | AI 전용 규칙(금지/필수/시나리오) |
@@ -65,7 +64,7 @@
 
 ### 3.2 문서 수정 시
 
-- 툴 시그니처·인자 변경 시 README, TMOS_AI_AGENT_GUIDE, AI_AGENT_SYSTEM_PROMPT 등 영향 받는 가이드를 함께 수정할 것.
+- 툴 시그니처·인자 변경 시 TMOS_AI_AGENT_GUIDE, AI_AGENT_SYSTEM_PROMPT 등 영향 받는 가이드를 함께 수정할 것.
 - 접속 정보는 저장·로드하지 않고 호출 시마다 `tmos_host` / `tmos_username` / `tmos_password` 로 전달한다는 점을 가이드에 반영할 것.
 
 ---

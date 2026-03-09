@@ -188,7 +188,6 @@ Claude Desktop이 이 MCP 서버를 자동으로 실행하도록 설정합니다
 
 설정 플로우와 도구 사용법은 다음 문서를 참고하세요.
 
-- **README.md** — 개요, .env 상세, 도구 요약
 - **F5_TMOS_STANDARD_CONFIG_GUIDE.md** — 기본 설정·L4 표준·검증·HA 등 표준 프로세스
 - **TMOS_AI_AGENT_GUIDE.md** — 도구 목록·사용 예시·Claude 연동
 - **F5_TMOS_API_GENERIC_GUIDE.md** — tm_get/post/patch/put/delete 등 범용 API 사용
