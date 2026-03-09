@@ -1,7 +1,7 @@
 # F5 TMOS AI Agent 구축 - 최종 완성 가이드
 
 이 문서는 MCP 서버에 등록된 **툴 목록·사용법·예시**와 Claude Desktop 연동 방법을 정리한 가이드입니다.  
-배포 후 다른 사용자도 이 문서와 `F5_TMOS_STANDARD_CONFIG_GUIDE.md`만 보면 설정 흐름과 툴 호출 순서를 따라 할 수 있습니다.
+배포 후 다른 사용자도 이 문서와 `guide_표준설정_플로우.md`만 보면 설정 흐름과 툴 호출 순서를 따라 할 수 있습니다.
 
 ## 📋 현재 상태
 
@@ -371,7 +371,7 @@ get_l4_standard_profiles_state_tool()
 ## 📚 문서 참조
 
 ### 1. F5 표준 설정 가이드
-👉 `F5_TMOS_STANDARD_CONFIG_GUIDE.md`
+👉 `guide_표준설정_플로우.md`
 
 **포함 내용:**
 - One-Arm 로드밸런싱 상세 가이드
@@ -384,7 +384,7 @@ get_l4_standard_profiles_state_tool()
 - 권장 설정값
 
 ### 2. AI Agent 시스템 프롬프트
-👉 `AI_AGENT_SYSTEM_PROMPT.md`
+👉 `prompt_AI에이전트_규칙.md`
 
 **포함 내용:**
 - AI Agent 역할 및 원칙
