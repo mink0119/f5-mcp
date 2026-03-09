@@ -163,6 +163,11 @@ Claude 등에서 MCP 도구를 쓸 때마다 **tmos_host**(관리 IP), **tmos_us
 
 설정 예시 파일: `claude_desktop_config.windows.example.json`, `claude_desktop_config.mac.example.json` (경로만 실제로 바꿔 사용).
 
+**Mac / Windows 동작 (같은 코드)**  
+이 서버는 **Mac과 Windows에서 동일한 코드**로 동작합니다. OS에 따라 도구 목록이 달라지거나, 특정 도구만 "비활성화"되는 설정은 **없습니다**.  
+`tm_get_tool`, `tm_post_tool`, `tm_patch_tool`, `tm_put_tool`, `tm_delete_tool`을 비롯해 **모든 도구가 항상 등록**되어 있으며, 설정 파일에서 도구별로 enable/disable 하는 옵션도 없습니다.  
+Claude가 "이 툴들은 MCP 서버에서 활성화해 달라고 요청하세요"라고 안내하는 경우, **Claude가 잘못 안내한 것**입니다. **서버 쪽에서 비활성화한 것이 아니므로** 아래 "일부 도구만 보이거나 미지원으로 나옴"을 참고해 조치하면 됩니다.
+
 ### 3.5 사용 흐름 요약
 
 1. 설치: Python → 프로젝트 폴더 → `pip install -r requirements.txt`
@@ -178,6 +183,7 @@ Claude 등에서 MCP 도구를 쓸 때마다 **tmos_host**(관리 IP), **tmos_us
 | `python`/`python3` 없음 | Python 설치 및 PATH (Windows: "Add to PATH" 선택) |
 | `pip install` 실패 | 네트워크, Python 3.7+ |
 | Claude에서 F5 도구 안 보임 | `command`가 이 f5-mcp의 run_mcp.bat / run_mcp.sh **절대 경로**인지 확인 |
+| 일부 도구만 보이거나 "미지원/비활성화"로 나옴 | Mac/Windows 모두 **같은 코드**이며 도구별 활성화 설정 없음. Claude 완전 종료 → 재실행 → **새 채팅** 후, "tm_get_tool로 ltm/pool 조회해줘"처럼 **도구 이름을 직접 말해** 요청해 보기. 연결된 MCP가 이 f5-mcp인지 설정 경로 재확인 |
 | 코드 수정 후에도 예전 동작 | Claude **완전 종료** 후 재실행, 새 채팅 |
 
 ---
