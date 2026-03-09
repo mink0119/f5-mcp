@@ -123,8 +123,14 @@ Claude 등에서 MCP 도구를 쓸 때마다 **tmos_host**(관리 IP), **tmos_us
 **Claude Desktop에서 MCP로 사용**
 
 1. **설정 파일 위치**
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows**:  
+     `%APPDATA%\Claude\claude_desktop_config.json`  
+     풀 경로: `C:\Users\사용자명\AppData\Roaming\Claude\claude_desktop_config.json`  
+     - **폴더/파일이 없으면**: `C:\Users\사용자명\AppData\Roaming\` 아래에 `Claude` 폴더를 만들고, 그 안에 `claude_desktop_config.json` 파일을 생성하면 됩니다.  
+     - **Microsoft Store(MSIX) 설치본**을 쓰는 경우, 앱이 실제로 읽는 경로는 다음일 수 있습니다.  
+       `C:\Users\사용자명\AppData\Local\Packages\Claude_xxxxx\LocalCache\Roaming\Claude\claude_desktop_config.json`  
+       (Packages 아래 폴더명에 `Claude`가 포함된 것을 찾아 사용. MCP가 안 먹히면 이 경로에 설정 파일을 두고 수정해 보세요.)
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 2. **설정 예시 (Windows)** — `command`에 run_mcp.bat **절대 경로**
 
 ```json
@@ -168,6 +174,7 @@ Claude 등에서 MCP 도구를 쓸 때마다 **tmos_host**(관리 IP), **tmos_us
 
 | 증상 | 확인 사항 |
 |------|-----------|
+| Windows에서 설정 경로 없음 | `C:\Users\사용자명\AppData\Roaming\Claude` 폴더를 만들고 그 안에 `claude_desktop_config.json` 생성. MSIX 설치면 `AppData\Local\Packages\...\LocalCache\Roaming\Claude` 경로 확인 |
 | `python`/`python3` 없음 | Python 설치 및 PATH (Windows: "Add to PATH" 선택) |
 | `pip install` 실패 | 네트워크, Python 3.7+ |
 | Claude에서 F5 도구 안 보임 | `command`가 이 f5-mcp의 run_mcp.bat / run_mcp.sh **절대 경로**인지 확인 |
