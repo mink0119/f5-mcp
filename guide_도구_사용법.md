@@ -312,6 +312,14 @@ health_check_tool()
 예시: delete_auth_user_tool(name="ncurity")
 ```
 
+### 12-1. get_config_templates_tool
+**목적:** 설정용 YAML 템플릿과 사용법 가이드 내용을 반환. 사용자가 "template 뽑아줘", "설정용 yaml 파일 전달해줘" 등으로 요청했을 때 호출하여 전달할 내용을 가져온다.
+```
+파라미터: include_guide(선택, 기본 True) — True면 config_templates.yaml + guide_YAML_템플릿_사용법.md 둘 다 반환, False면 YAML만.
+반환: config_templates_yaml, config_templates_filename, guide_md, guide_filename, error(실패 시)
+예시: get_config_templates_tool()  또는  get_config_templates_tool(include_guide=False)
+```
+
 ### 13. apply_basic_settings_tool
 **목적:** 장비 초기 기본 설정 템플릿. "기본 설정 해줘" 요청 시 사용. hostname, admin/root 비밀번호, DNS, NTP(+timezone), syslog를 넘긴 인자만 적용.
 

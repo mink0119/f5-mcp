@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """F5 TMOS AI Agent - MCP 서버 (Windows/macOS 공용)"""
 
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 from Tools.F5object import F5_object
 
@@ -341,6 +343,41 @@ def tm_delete_tool(
     if isinstance(conn, dict) and "error" in conn:
         return conn
     return F5_object(**(conn or {})).tm_request("DELETE", path)
+
+
+# ============= 설정 템플릿 (YAML/가이드) 전달 =============
+@mcp.tool()
+def get_config_templates_tool(
+    include_guide: bool = True,
+):
+    """설정용 YAML 템플릿과 사용법 가이드 내용을 반환한다. 사용자가 'template 뽑아줘', '설정용 yaml 파일 전달해줘' 등으로 요청했을 때 호출하여 전달할 내용을 가져온다.
+    include_guide=True(기본)이면 config_templates.yaml과 guide_YAML_템플릿_사용법.md 둘 다 반환, False면 YAML만 반환."""
+    base_dir = Path(__file__).resolve().parent
+    result = {
+        "config_templates_yaml": None,
+        "config_templates_filename": "config_templates.yaml",
+        "guide_md": None,
+        "guide_filename": "guide_YAML_템플릿_사용법.md",
+        "error": None,
+    }
+    yaml_path = base_dir / "config_templates.yaml"
+    try:
+        result["config_templates_yaml"] = yaml_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        result["error"] = f"파일 없음: {yaml_path}"
+        return result
+    except Exception as e:
+        result["error"] = str(e)
+        return result
+    if include_guide:
+        guide_path = base_dir / "guide_YAML_템플릿_사용법.md"
+        try:
+            result["guide_md"] = guide_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            result["guide_md"] = "(가이드 파일 없음)"
+        except Exception as e:
+            result["guide_md"] = f"(가이드 읽기 실패: {e})"
+    return result
 
 
 @mcp.tool()

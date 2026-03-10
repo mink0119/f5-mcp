@@ -42,13 +42,16 @@ AI Agent 응답:
 - **반환값에 action: "ask_user" 또는 do_not_report_as_complete: true 가 있으면 기본설정이 완료된 것이 아니다. "기본설정 완료", "1호기 기본설정 완료" 등으로 말하면 안 된다.** 대신 basic_settings_guide와 message를 사용자에게 보여주고 값을 입력받은 뒤, 받은 값으로 `apply_basic_settings_tool`을 다시 호출한다.
 - 툴 반환값에 **action: "ask_user"** 가 있으면: **basic_settings_guide** 가 있으면 먼저 "기본 설정에서 진행하는 항목"을 표로 정리해 보여 주고(각 항목의 label, description, example), 그 다음 **message** 로 "어떤 항목에 어떤 값을 넣을지 알려주세요"라고 요청한 뒤, 사용자가 입력한 값만으로 `apply_basic_settings_tool` 을 다시 호출한다. **skipped** 가 있으면 "다음 항목은 값을 넣지 않아 건너뛰었습니다: …" 로 안내한다.
 
-### 4-0. "계정 추가/삭제/변경" 요청 시
+### 4-0. "설정용 template 뽑아줘 / YAML 파일 전달해줘" 요청 시
+- **get_config_templates_tool()** 을 호출한다. 반환된 **config_templates_yaml** 내용을 사용자에게 전달하고, **guide_md** 가 있으면 사용법 가이드도 함께 안내한다. 사용자가 파일로 저장하고 싶어 하면 저장할 파일명으로 `config_templates.yaml`, 사용법은 `guide_YAML_템플릿_사용법.md` 를 제안한다.
+
+### 4-1. "계정 추가/삭제/변경" 요청 시
 - **추가**: `create_auth_user_tool(name="사용자명", password="비밀번호", partition_access=[{"name": "all-partitions", "role": "admin"}])` 사용. admin 권한이면 role="admin".
 - **삭제**: `delete_auth_user_tool(name="사용자명")`
 - **변경(비밀번호 등)**: `update_auth_user_tool(name="사용자명", password="새비밀번호")` 또는 description, partition_access, shell 등 수정.
 - **목록**: `list_auth_users_tool()` / **단일 조회**: `get_auth_user_tool(name="사용자명")`
 
-### 4-1. 다중 장비·비밀번호 변경 후 연결 (요청 단위 연결)
+### 4-2. 다중 장비·비밀번호 변경 후 연결 (요청 단위 연결)
 - 모든 툴은 선택 인자 **tmos_host, tmos_port, tmos_username, tmos_password** 를 받는다. 넘기면 **해당 호출만** 그 연결로 수행한다 (환경변수·서버 설정 변경 없음).
 - **admin 비밀번호를 방금 변경한 경우**: 이후 호출(예: root 비밀번호 변경)에서 401이 나오지 않도록, **반드시 tmos_username="admin", tmos_password="방금 설정한 새 비밀번호"** 를 넘겨서 같은 툴을 다시 호출한다.
 - **다른 장비**를 대상으로 할 때: 해당 장비 IP와 계정을 tmos_host, tmos_username, tmos_password 로 넘긴다. 소스/배포 수정 없이 여러 장비를 교대로 설정할 수 있다.
