@@ -190,32 +190,15 @@ class F5_object:
         """현재 DNS 설정 조회"""
         return self._request("GET", "/mgmt/tm/sys/dns")
     
-    def set_dns(self, nameservers, search_domains=None):
+    def set_dns(self, nameservers):
         """DNS 서버 설정
         
         Parameters:
         -----------
         nameservers : list
             DNS 서버 주소 리스트 (예: ['8.8.8.8', '8.8.4.4'])
-        search_domains : list, optional
-            로컬 도메인 검색 리스트 (예: ['example.com', 'test.local'])
         """
-        # DNS 서버 설정 (필수)
         payload = {"nameServers": nameservers}
-        
-        # 검색 도메인 설정 (선택사항 - 지정된 경우만 추가)
-        if search_domains:
-            payload["search"] = search_domains
-            
-        return self._request("PATCH", "/mgmt/tm/sys/dns", json_body=payload)
-    
-    def clear_dns_search_domains(self):
-        """DNS 검색 도메인 삭제
-        
-        Search domain을 비우려면 단독으로 PATCH 요청을 해야 함
-        """
-        # search 필드를 제거하려고 함. 빈 배열이 작동하지 않으면 다른 값 시도
-        payload = {"search": []}
         return self._request("PATCH", "/mgmt/tm/sys/dns", json_body=payload)
     
     def get_ntp(self):
@@ -254,6 +237,28 @@ class F5_object:
             각 서비스의 로그 레벨 범위 (emerg, alert, crit, err, warning, notice, info, debug)
         """
         return self._request("PATCH", "/mgmt/tm/sys/syslog", json_body=kwargs)
+
+    def set_remote_syslog_destination(self, destination):
+        """원격 Syslog 목적지 설정 (예: 192.168.47.81:514).
+        PATCH /mgmt/tm/sys/syslog 의 remote-servers 배열에 host/remote-port 설정.
+        destination: 'host' 또는 'host:port' (port 기본 514)
+        """
+        if not destination or not str(destination).strip():
+            return {"ok": False, "message": "destination is empty"}
+        s = str(destination).strip()
+        if ":" in s:
+            host, port_str = s.rsplit(":", 1)
+            try:
+                port = int(port_str)
+            except ValueError:
+                return {"ok": False, "message": f"invalid port: {port_str}"}
+        else:
+            host = s
+            port = 514
+        if not host:
+            return {"ok": False, "message": "host is empty"}
+        body = {"remote-servers": [{"host": host, "remote-port": port}]}
+        return self._request("PATCH", "/mgmt/tm/sys/syslog", json_body=body)
 
     def get_management_routes(self):
         """management route 목록 조회. GET /mgmt/tm/sys/management-route (mgmt 포트 라우팅)"""
@@ -410,7 +415,7 @@ class F5_object:
         path = f"/mgmt/tm/auth/user/{name}"
         return self._request("DELETE", path)
 
-    def _has_any_user_provided_value(self, hostname, nameservers, ntp_servers, syslog, admin_password, root_password):
+    def _has_any_user_provided_value(self, hostname, nameservers, ntp_servers, syslog, admin_password, root_password, syslog_destination=None):
         """사용자가 적용할 값을 하나라도 넘겼는지 확인. 없으면 True 반환 시 ask_user."""
         if hostname is not None and str(hostname).strip() != "":
             return True
@@ -419,6 +424,8 @@ class F5_object:
         if ntp_servers is not None and isinstance(ntp_servers, (list, tuple)) and len(ntp_servers) > 0:
             return True
         if syslog is not None and isinstance(syslog, dict) and len(syslog) > 0:
+            return True
+        if syslog_destination is not None and str(syslog_destination).strip() != "":
             return True
         if admin_password is not None and str(admin_password).strip() != "":
             return True
@@ -430,23 +437,23 @@ class F5_object:
         self,
         hostname=None,
         nameservers=None,
-        search_domains=None,
         ntp_servers=None,
         timezone=None,
         admin_password=None,
         root_password=None,
         syslog=None,
+        syslog_destination=None,
         syslog_via_mgmt=False,
         management_route_name=None,
         management_route_network="default",
         management_route_gateway=None,
     ):
-        """장비 초기 기본 설정 템플릿: hostname, dns, ntp(+timezone), syslog, admin/root 비밀번호를 한 번에 적용.
-        - hostname, nameservers, ntp_servers, syslog, admin_password, root_password 중 하나도 값이 없으면 적용하지 않고 ask_user 반환.
+        """장비 초기 기본 설정 템플릿: hostname, dns, ntp(+timezone), syslog(레벨/원격목적지), admin/root 비밀번호를 한 번에 적용.
+        - hostname, nameservers, ntp_servers, syslog, syslog_destination, admin_password, root_password 중 하나도 값이 없으면 적용하지 않고 ask_user 반환.
         - AI는 값을 임의로 넣지 말고, 사용자에게 물어본 뒤 넘길 것.
         - 시작 시 password-policy 비활성화 + setup.run, 이후 hostname → dns → ntp → (선택) management route → syslog → 비밀번호 순.
         """
-        if not self._has_any_user_provided_value(hostname, nameservers, ntp_servers, syslog, admin_password, root_password):
+        if not self._has_any_user_provided_value(hostname, nameservers, ntp_servers, syslog, admin_password, root_password, syslog_destination=syslog_destination):
             msg = "기본 설정에 적용할 항목을 알려주세요. 호스트명, DNS, NTP, Syslog, admin/root 비밀번호 중 원하는 것의 값을 입력해 주시면 해당 항목만 적용합니다."
             return {
                 "ok": False,
@@ -494,7 +501,7 @@ class F5_object:
         if nameservers is None or not isinstance(nameservers, (list, tuple)) or len(nameservers) == 0:
             skipped.append("nameservers")
         else:
-            r = self.set_dns(nameservers, search_domains)
+            r = self.set_dns(nameservers)
             results.append({"step": "dns", "result": r})
             if isinstance(r, dict) and r.get("ok") is False:
                 all_ok = False
@@ -526,13 +533,21 @@ class F5_object:
             if isinstance(r, dict) and r.get("ok") is False:
                 all_ok = False
 
-        if not (syslog is not None and isinstance(syslog, dict) and len(syslog) > 0):
+        has_syslog_levels = syslog is not None and isinstance(syslog, dict) and len(syslog) > 0
+        has_syslog_dest = syslog_destination is not None and str(syslog_destination).strip() != ""
+        if not has_syslog_levels and not has_syslog_dest:
             skipped.append("syslog")
         else:
-            r = self.set_syslog(**syslog)
-            results.append({"step": "syslog", "result": r})
-            if isinstance(r, dict) and r.get("ok") is False:
-                all_ok = False
+            if has_syslog_levels:
+                r = self.set_syslog(**syslog)
+                results.append({"step": "syslog_levels", "result": r})
+                if isinstance(r, dict) and r.get("ok") is False:
+                    all_ok = False
+            if has_syslog_dest:
+                r = self.set_remote_syslog_destination(syslog_destination)
+                results.append({"step": "syslog_destination", "result": r})
+                if isinstance(r, dict) and r.get("ok") is False:
+                    all_ok = False
 
         # 비밀번호 변경은 항상 마지막 (중간에 변경 시 이후 API 인증 실패 방지)
         if admin_password is None or str(admin_password).strip() == "":

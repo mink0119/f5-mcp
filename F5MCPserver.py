@@ -480,7 +480,6 @@ def get_dns_tool(
 @mcp.tool()
 def set_dns_tool(
     nameservers: list,
-    search_domains: list = None,
     tmos_host: str = None,
     tmos_port: int = None,
     tmos_username: str = None,
@@ -488,19 +487,7 @@ def set_dns_tool(
 ):
     """DNS 서버 설정. """ + _device_params()
     conns = _resolve_connection(tmos_host, tmos_port, tmos_username, tmos_password)
-    return _run_per_device(conns, lambda c: F5_object(**(c or {})).set_dns(nameservers, search_domains))
-
-
-@mcp.tool()
-def clear_dns_search_domains_tool(
-    tmos_host: str = None,
-    tmos_port: int = None,
-    tmos_username: str = None,
-    tmos_password: str = None,
-):
-    """DNS 검색 도메인 삭제. """ + _device_params()
-    conns = _resolve_connection(tmos_host, tmos_port, tmos_username, tmos_password)
-    return _run_per_device(conns, lambda c: F5_object(**(c or {})).clear_dns_search_domains())
+    return _run_per_device(conns, lambda c: F5_object(**(c or {})).set_dns(nameservers))
 
 
 # ============= NTP 설정 =============
@@ -618,7 +605,7 @@ def set_syslog_tool(
 _BASIC_SETTING_KEYS = ("hostname", "nameservers", "ntp_servers", "timezone", "syslog", "admin_password", "root_password")
 
 
-def _has_any_basic_setting_value(hostname, nameservers, ntp_servers, syslog, admin_password, root_password, timezone=None, apply_only_keys=None):
+def _has_any_basic_setting_value(hostname, nameservers, ntp_servers, syslog, admin_password, root_password, timezone=None, apply_only_keys=None, syslog_destination=None):
     """적용할 값이 하나라도 있으면 True. apply_only_keys가 있으면 해당 키에 한정하여 판단."""
     def has_hostname():
         return hostname is not None and str(hostname).strip() != ""
@@ -629,7 +616,9 @@ def _has_any_basic_setting_value(hostname, nameservers, ntp_servers, syslog, adm
     def has_timezone():
         return timezone is not None and str(timezone).strip() != ""
     def has_syslog():
-        return syslog is not None and isinstance(syslog, dict) and len(syslog) > 0
+        return (syslog is not None and isinstance(syslog, dict) and len(syslog) > 0) or (
+            syslog_destination is not None and str(syslog_destination).strip() != ""
+        )
     def has_admin_pw():
         return admin_password is not None and str(admin_password).strip() != ""
     def has_root_pw():
@@ -671,11 +660,11 @@ _BASIC_SETTINGS_ASK_USER_RESPONSE = {
             {"key": "hostname", "label": "호스트명", "description": "F5 장비 호스트명(FQDN). 사용자가 지정한 경우에만 넣을 것.", "example": "형식: 문자열 (사용자 지정값만)"},
             {"key": "nameservers", "label": "DNS 서버", "description": "DNS 서버 IP 목록. 사용자가 지정한 경우에만 넣을 것. guide 예시 IP를 기본값으로 넣지 말 것.", "example": "형식: 문자열 배열 (사용자 지정 IP만)"},
             {"key": "ntp_servers", "label": "NTP 서버 및 타임존", "description": "NTP 서버 목록. 사용자가 지정한 경우에만 넣을 것. guide 예시를 기본값으로 넣지 말 것.", "example": "형식: 문자열 배열 (사용자 지정 NTP만)", "optional": "timezone"},
-            {"key": "syslog", "label": "Syslog", "description": "로그 레벨 등. 사용자가 지정한 경우에만.", "example": "형식: consoleLog, authPrivFrom 등 키/값"},
+            {"key": "syslog", "label": "Syslog", "description": "로그 레벨 또는 원격 목적지. 사용자가 지정한 경우에만.", "example": "레벨: consoleLog, authPrivFrom 등 키/값. 목적지: syslog_destination으로 IP:port (예: 192.168.47.81:514)"},
             {"key": "admin_password", "label": "admin 비밀번호", "description": "admin 계정 비밀번호. 사용자가 지정한 경우에만.", "example": "형식: 문자열 (사용자 지정값만)"},
             {"key": "root_password", "label": "root 비밀번호", "description": "root 계정 비밀번호. 사용자가 지정한 경우에만.", "example": "형식: 문자열 (사용자 지정값만)"},
         ],
-        "note": "사용자가 말로 지정하지 않은 항목은 인자로 넣지 말 것. apply_only_keys에는 사용자가 지정한 키만 포함. (mgmt로 syslog 시 syslog_via_mgmt, management_route_gateway 필요할 수 있음)",
+        "note": "사용자가 말로 지정하지 않은 항목은 인자로 넣지 말 것. apply_only_keys에는 사용자가 지정한 키만 포함. Syslog 원격 서버는 syslog_destination(예: 192.168.47.81:514). mgmt로 syslog 시 syslog_via_mgmt, management_route_gateway 필요할 수 있음",
     },
 }
 
@@ -684,7 +673,6 @@ _BASIC_SETTINGS_ASK_USER_RESPONSE = {
 def apply_basic_settings_tool(
     hostname: str = None,
     nameservers: list = None,
-    search_domains: list = None,
     ntp_servers: list = None,
     timezone: str = None,
     admin_password: str = None,
@@ -697,6 +685,7 @@ def apply_basic_settings_tool(
     daemon_to: str = None,
     auth_priv_from: str = None,
     auth_priv_to: str = None,
+    syslog_destination: str = None,
     syslog_via_mgmt: bool = False,
     management_route_name: str = None,
     management_route_network: str = "default",
@@ -749,7 +738,7 @@ def apply_basic_settings_tool(
     if not apply_only_keys:
         return _BASIC_SETTINGS_ASK_USER_RESPONSE
 
-    if not _has_any_basic_setting_value(hostname, nameservers, ntp_servers, syslog, admin_password, root_password, timezone=timezone, apply_only_keys=apply_only_keys):
+    if not _has_any_basic_setting_value(hostname, nameservers, ntp_servers, syslog, admin_password, root_password, timezone=timezone, apply_only_keys=apply_only_keys, syslog_destination=syslog_destination):
         return _BASIC_SETTINGS_ASK_USER_RESPONSE
 
     # apply_only_keys에 있는 항목만 적용 (나머지는 None으로 덮어서 전달)
@@ -761,12 +750,12 @@ def apply_basic_settings_tool(
     kwargs = dict(
         hostname=hostname if _allow("hostname") else None,
         nameservers=nameservers if _allow("nameservers") else None,
-        search_domains=search_domains if _allow("nameservers") else None,
         ntp_servers=ntp_servers if _allow("ntp_servers") else None,
         timezone=timezone if (_allow("ntp_servers") or _allow("timezone")) else None,
         admin_password=admin_password if _allow("admin_password") else None,
         root_password=root_password if _allow("root_password") else None,
         syslog=syslog if _allow("syslog") else None,
+        syslog_destination=syslog_destination if _allow("syslog") else None,
         syslog_via_mgmt=syslog_via_mgmt,
         management_route_name=management_route_name,
         management_route_network=management_route_network,

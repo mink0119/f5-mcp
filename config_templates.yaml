@@ -1,0 +1,240 @@
+# ============================================================
+# F5 MCP 설정 YAML 템플릿
+# 사용할 섹션만 채워서 사용. 상세 설명: guide_YAML_템플릿_사용법.md
+# create_tool(resource_path="...", url_body=...) 또는 tm_post_tool(path, body)에 넘길 값과 동일한 형태.
+# ============================================================
+
+# --- connection (모든 도구에서 tmos_host 등으로 전달) ---
+connection:
+  tmos_host: "192.168.1.100"
+  tmos_port: 443
+  tmos_username: admin
+  tmos_password: "비밀번호"
+
+# ========== 1. basic_settings (apply_basic_settings_tool) ==========
+# syslog는 destination(목적지)이 핵심.
+basic_settings:
+  apply_only_keys:
+    - hostname
+    - nameservers
+    - ntp_servers
+    - timezone
+    - admin_password
+    - root_password
+    - syslog
+  hostname: f5-01.localdomain
+  nameservers:
+    - 8.8.8.8
+    - 8.8.4.4
+  ntp_servers:
+    - time.google.com
+  timezone: Asia/Seoul
+  admin_password: "new_admin_pass"
+  root_password: "new_root_pass"
+  syslog_destination: "192.168.47.81:514"
+  syslog_levels: {}
+  syslog_via_mgmt: false
+  management_route_gateway: null
+  management_route_network: default
+  management_route_name: syslog_mgmt_route
+
+# ========== 2. vlan (create_tool → net/vlan) ==========
+vlan:
+  name: vlan100
+  tag: 100
+  interfaces: "1.1"
+
+# ========== 3. self_ip (create_tool → net/self) ==========
+self_ip:
+  name: self_vlan100
+  address: "10.10.10.100/24"
+  vlan: vlan100
+  allowService: "default"
+
+# ========== 4. route (create_tool → net/route) ==========
+route:
+  name: default_route
+  network: "0.0.0.0/0"
+  gw: "10.10.10.1"
+
+# ========== 5. snat_pool (create_tool → ltm/snatpool) ==========
+snat_pool:
+  name: snat_pool_1
+  members:
+    - "10.10.10.200"
+    - "10.10.10.201-10.10.10.210"
+
+# ========== 6. pool (create_tool → ltm/pool) ==========
+pool:
+  name: pool_web
+  loadBalancingMode: round-robin
+  monitors:
+    - "/Common/http"
+  members:
+    - name: "192.168.1.10:80"
+    - name: "192.168.1.11:80"
+
+# ========== 7. virtual_server (create_tool → ltm/virtual) ==========
+virtual_server:
+  name: vs_http
+  destination: "10.10.10.50:80"
+  pool: pool_web
+  sourceAddressTranslation:
+    type: snat
+    pool: snat_pool_1
+  ipProtocol: tcp
+  profiles:
+    - name: "http"
+      context: all
+    - name: "tcp"
+      context: all
+
+# ========== 8. monitor (create_tool → ltm/monitor/{type}) ==========
+# 타입별 path: ltm/monitor/http, ltm/monitor/tcp, ltm/monitor/https, ltm/monitor/icmp 등
+monitor_http:
+  name: monitor_http_custom
+  send: "GET /\\r\\n"
+  receive: ""
+  interval: 5
+  timeout: 16
+  partition: Common
+
+monitor_tcp:
+  name: monitor_tcp_custom
+  interval: 5
+  timeout: 16
+  partition: Common
+
+monitor_https:
+  name: monitor_https_custom
+  send: "GET /\\r\\n"
+  receive: ""
+  interval: 5
+  timeout: 16
+  partition: Common
+
+# ========== 9. profile (create_tool → ltm/profile/{type}) ==========
+# 타입: http, tcp, client-ssl, server-ssl, fastl4 등
+profile_http:
+  name: profile_http_custom
+  defaultsFrom: "/Common/http"
+  idleTimeout: 300
+  partition: Common
+
+profile_tcp:
+  name: profile_tcp_custom
+  defaultsFrom: "/Common/tcp"
+  idleTimeout: 300
+  partition: Common
+
+profile_client_ssl:
+  name: profile_clientssl_custom
+  defaultsFrom: "/Common/clientssl"
+  ciphers: "DEFAULT"
+  partition: Common
+
+profile_server_ssl:
+  name: profile_serverssl_custom
+  defaultsFrom: "/Common/serverssl"
+  partition: Common
+
+profile_fastl4:
+  name: profile_fastl4_custom
+  defaultsFrom: "/Common/fastL4"
+  idleTimeout: 300
+  partition: Common
+
+# ========== 10. policy (create_tool → ltm/policy) ==========
+policy:
+  name: policy_custom
+  strategy: "/Common/first-match"
+  rules:
+    - name: rule_1
+      ordinal: 1
+      actions:
+        - forward: true
+          pool: "/Common/pool_web"
+      conditions:
+        - httpUri: true
+          path: true
+          equals: true
+          values:
+            - "/app"
+
+# ========== 11. irule (create_tool → ltm/rule) ==========
+irule:
+  name: irule_custom
+  apiAnonymous: |
+    when HTTP_REQUEST {
+      log local0. "Request to [HTTP::uri]"
+    }
+
+# ========== 12. data_group (create_tool → ltm/data-group/internal 또는 external) ==========
+data_group_internal:
+  name: dg_internal_custom
+  type: string
+  records:
+    - name: "key1"
+      data: "value1"
+    - name: "key2"
+      data: "value2"
+  partition: Common
+
+# ========== 13. cipher (client-ssl profile의 ciphers / cipherGroup) ==========
+# ltm/profile/client-ssl 생성·수정 시 ciphers 또는 cipherGroup 필드로 지정
+cipher_example:
+  ciphers: "DEFAULT"
+  # 또는 cipherGroup: "/Common/f5-default" 등
+  # cipher 그룹 사용 시: sys/file/ssl-cipher 등 참고
+
+# ========== 14. ha (apply_ha_tool) ==========
+ha:
+  group_name: sync-failover-group
+  group_type: sync-failover
+  primary_hostname: bigip1
+  primary_configsync_ip: "10.0.0.1"
+  primary_mirror_ip: "10.0.0.1"
+  primary_unicast:
+    - ip: "10.0.0.1"
+      port: 1026
+  secondary_device_ip: "192.168.1.101"
+  secondary_device_name: bigip2
+  secondary_username: admin
+  secondary_password: "비밀번호"
+  secondary_configsync_ip: "10.0.0.2"
+  secondary_mirror_ip: "10.0.0.2"
+  secondary_unicast:
+    - ip: "10.0.0.2"
+      port: 1026
+
+# ========== 15. auth_user (create_auth_user_tool) ==========
+auth_user:
+  name: operator1
+  password: "비밀번호"
+  partition_access:
+    - name: "all-partitions"
+      role: "admin"
+  shell: bash
+
+# ========== 16. management_route (add_management_route_tool) ==========
+management_route:
+  name: route_to_syslog
+  network: default
+  gateway: "192.168.1.1"
+  description: "mgmt route for syslog"
+
+# ========== 17. dns (set_dns_tool) ==========
+dns:
+  nameservers:
+    - 8.8.8.8
+    - 8.8.4.4
+
+# ========== 18. ntp (set_ntp_tool) ==========
+ntp:
+  servers:
+    - time.google.com
+  timezone: Asia/Seoul
+
+# ========== 19. l4_standard (apply_l4_standard_db_tool / apply_l4_standard_profiles_tool) ==========
+# 인자 없음. 도구만 호출.
+l4_standard: {}

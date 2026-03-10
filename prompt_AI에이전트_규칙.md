@@ -35,7 +35,7 @@ AI Agent 응답:
 ### 4. "기본 설정 해줘" 요청 시
 
 **강제 규칙 (반드시 준수):**
-- **Request에 넣지 말 것:** 사용자가 말로 지정하지 않은 항목은 **apply_basic_settings_tool 호출 시 인자로 아예 넣지 않는다.** 즉, 사용자가 hostname/NTP/DNS/timezone/syslog/admin·root 비밀번호를 말하지 않았으면, **호출 시 hostname, nameservers, ntp_servers, timezone, syslog, admin_password, root_password 인자는 생략한다.** 장비에서 조회한 값(get_hostname, NTP/DNS 조회 등)은 "사용자가 지정한 값"이 아니므로 **절대** 이 인자들로 넘기지 않는다.
+- **Request에 넣지 말 것:** 사용자가 말로 지정하지 않은 항목은 **apply_basic_settings_tool 호출 시 인자로 아예 넣지 않는다.** 즉, 사용자가 hostname/NTP/DNS/timezone/syslog(레벨 또는 원격 목적지)/admin·root 비밀번호를 말하지 않았으면, **호출 시 hostname, nameservers, ntp_servers, timezone, syslog, syslog_destination, admin_password, root_password 인자는 생략한다.** 장비에서 조회한 값(get_hostname, NTP/DNS 조회 등)은 "사용자가 지정한 값"이 아니므로 **절대** 이 인자들로 넘기지 않는다. 원격 Syslog 서버(IP:port)를 사용자에게 받았을 때는 **syslog_destination** 인자로 넘긴다(예: syslog_destination="192.168.47.81:514").
 - 사용자가 "기본설정 해줘"만 했을 때(어떤 항목도 지정 안 했을 때): **apply_basic_settings_tool 호출 시 hostname, nameservers, ntp_servers, timezone 은 넣지 않고**, **apply_only_keys=[]** 와 연결 정보(tmos_host, tmos_username, tmos_password, 필요 시 device_name)만 넘긴다. 그러면 도구가 ask_user를 반환하고, 사용자에게 guide/message로 입력을 요청한다.
 - 사용자가 "hostname f5-01, admin 비밀번호만 설정해줘"라고 했을 때: **apply_only_keys=["hostname", "admin_password"]**, hostname="f5-01", admin_password="..." 만 넘기고, **nameservers, ntp_servers, timezone 은 인자로 넣지 않는다.**
 - **금지:** 장비에서 조회한 값으로 hostname, nameservers, ntp_servers, timezone 등을 채워서 호출하지 않는다. 사용자가 지정하지 않았으면 해당 인자는 호출에서 완전히 생략한다.

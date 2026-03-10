@@ -316,10 +316,11 @@ health_check_tool()
 **목적:** 장비 초기 기본 설정 템플릿. "기본 설정 해줘" 요청 시 사용. hostname, admin/root 비밀번호, DNS, NTP(+timezone), syslog를 넘긴 인자만 적용.
 
 ```
-파라미터 (모두 선택): hostname, nameservers, search_domains, ntp_servers, timezone, admin_password, root_password, console_log, clustered_host_slot, cron_from, cron_to, daemon_from, daemon_to, auth_priv_from, auth_priv_to
+파라미터 (모두 선택): hostname, nameservers, ntp_servers, timezone, admin_password, root_password, syslog_destination(원격 Syslog IP:port, 예: 192.168.47.81:514), console_log, clustered_host_slot, cron_from, cron_to, daemon_from, daemon_to, auth_priv_from, auth_priv_to, syslog_via_mgmt, management_route_gateway 등. apply_only_keys 필수.
 
 예시:
-apply_basic_settings_tool(hostname="f5-01", nameservers=["8.8.8.8"], ntp_servers=["time.google.com"], timezone="Asia/Seoul", admin_password="newadminpass", root_password="newrootpass")
+apply_basic_settings_tool(apply_only_keys=["hostname","nameservers","ntp_servers","timezone","admin_password","root_password"], hostname="f5-01", nameservers=["8.8.8.8"], ntp_servers=["time.google.com"], timezone="Asia/Seoul", admin_password="newadminpass", root_password="newrootpass")
+apply_basic_settings_tool(apply_only_keys=["syslog"], syslog_destination="192.168.47.81:514")
 ```
 
 ### 14. apply_l4_standard_db_tool

@@ -51,6 +51,8 @@ f5-mcp/
 | **guide_표준설정_플로우.md** | 표준 설정 플로우: 기본 설정(Section 0), L4 DB/프로파일(Section 1), One-Arm, 이중화, VLAN/Self IP/Route, SNAT, 프로파일. 적용 전/후 검증 절차 포함 |
 | **guide_도구_사용법.md** | 도구 목록·사용 예시·Claude 연동. CRUD, auth user, 기본/L4 표준, HA 툴 정리 및 자연어 시나리오 |
 | **guide_범용_API.md** | 범용 TMOS API: tm_get / tm_post / tm_patch / tm_put / tm_delete. path·body로 모든 설정 생성/수정/삭제 |
+| **config_templates.yaml** | 설정 YAML 템플릿(connection, basic_settings, vlan, pool, virtual, monitor, profile, policy, irule 등). 사용할 섹션만 채워 사용 |
+| **guide_YAML_템플릿_사용법.md** | config_templates.yaml 섹션별 설명 및 MCP 도구 매핑. 구조화된 설정 입력 시 참고 |
 | **prompt_AI에이전트_규칙.md** | AI 에이전트용 규칙: 기본설정·L4 표준·HA 시 금지/필수, ask_user 처리, 시나리오별 동작 |
 
 배포·설치는 본 README의 **§3 배포 및 설치 가이드**, 개발 시 참고할 규칙은 **§4 개발 지침 및 가이드**에 정리되어 있습니다.
